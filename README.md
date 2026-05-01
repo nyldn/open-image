@@ -44,7 +44,6 @@ claude plugin install img@nyldn-plugins
 `https://github.com/nyldn/plugins.git`, and it makes both plugins available:
 
 ```bash
-claude plugin install octo@nyldn-plugins
 claude plugin install img@nyldn-plugins
 ```
 
