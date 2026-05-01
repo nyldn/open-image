@@ -52,7 +52,7 @@ sleep 1.7
 clear
 sleep 0.2
 printf "${BOLD}${BLUE}>${RESET} "
-type_text '/img review this landing page and create on-brand hero and feature-card images, then prepare a site insertion proposal' 0.025
+type_text '/img:img review this landing page and create on-brand hero and feature-card images, then prepare a site insertion proposal' 0.025
 echo ""
 sleep 0.5
 
@@ -92,7 +92,7 @@ sleep 2.5
 clear
 sleep 0.2
 printf "${BOLD}${BLUE}>${RESET} "
-type_text "/img setup" 0.04
+type_text "/img:setup" 0.04
 echo ""
 sleep 0.5
 

@@ -1,4 +1,10 @@
 #!/usr/bin/env node
-import { main } from "../src/img.mjs";
+const [major] = process.versions.node.split(".").map(Number);
+if (major < 18) {
+  console.error(`img requires Node 18+, found ${process.versions.node}`);
+  process.exit(1);
+}
+
+const { main } = await import("../src/img.mjs");
 
 await main(process.argv.slice(2));

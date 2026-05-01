@@ -1,7 +1,7 @@
 ---
 description: Generate an image from natural language with OpenAI gpt-image-2 by default.
 argument-hint: "[natural language image request]"
-allowed-tools: "Bash(img:*)"
+allowed-tools: "Bash(${CLAUDE_PLUGIN_ROOT}/bin/img:*)"
 ---
 
 # img
@@ -17,8 +17,8 @@ Default to OpenAI `gpt-image-2`. Preserve aspect, style, size, and subject words
 Activate the terminal loader, then run:
 
 ```bash
-img activate
-img --provider openai --prompt "$ARGUMENTS"
+"${CLAUDE_PLUGIN_ROOT}/bin/img" activate
+"${CLAUDE_PLUGIN_ROOT}/bin/img" --provider openai --prompt "$ARGUMENTS"
 ```
 
-Report the saved file path and provider. Do not retry with a different provider if the command fails. If setup is missing, tell the user to run `/img setup`.
+Report the saved file path and provider. Do not retry with a different provider if the command fails. If setup is missing, tell the user to run `/img:setup`.

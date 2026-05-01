@@ -4,67 +4,122 @@
   "title": "img config",
   "type": "object",
   "properties": {
-    "schemaVersion": {
-      "const": 1
-    },
-    "defaultProvider": {
-      "enum": ["openai", "gemini"]
-    },
-    "outputDir": {
-      "type": "string"
-    },
-    "openAfterGeneration": {
-      "type": "boolean"
-    },
-    "count": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 10
-    },
-    "allowSilentMutation": {
-      "type": "boolean"
-    },
+    "schemaVersion": { "const": 1 },
+    "defaultProvider": { "enum": ["openai", "gemini"] },
+    "provider": { "enum": ["openai", "gemini"] },
+    "outputDir": { "type": "string" },
+    "openAfterGeneration": { "type": "boolean" },
+    "count": { "type": "integer", "minimum": 1, "maximum": 12 },
+    "allowSilentMutation": { "type": "boolean" },
     "limits": {
       "type": "object",
       "properties": {
-        "maxImagesPerRun": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "maxCostPerRunUsd": {
-          "type": "number",
-          "minimum": 0
+        "maxImagesPerRun": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "maxCostPerRunUsd": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "framework": { "type": "string" },
+        "siteRoot": { "type": "string" },
+        "references": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       },
       "additionalProperties": true
     },
-    "project": {
-      "type": "object",
-      "additionalProperties": true
-    },
     "brand": {
       "type": "object",
-      "additionalProperties": true
+      "properties": {
+        "prePrompts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "negativePrompts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "references": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
     },
     "assetTypes": {
       "type": "object",
-      "additionalProperties": true
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "aliases": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "provider": { "enum": ["openai", "gemini"] },
+          "aspect": { "type": "string" },
+          "size": { "type": "string" },
+          "style": { "type": "string" },
+          "outputDir": { "type": "string" },
+          "filenamePattern": { "type": "string" },
+          "destination": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
     },
     "destinations": {
       "type": "object",
-      "additionalProperties": true
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": { "enum": ["folder", "site"] },
+          "path": { "type": "string" },
+          "mode": { "type": "string" },
+          "external": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
     },
     "prompt": {
       "type": "object",
-      "additionalProperties": true
+      "properties": {
+        "mergeMode": { "enum": ["append", "replace"] },
+        "prePrompt": { "type": "string" },
+        "prePrompts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "negativePrompt": { "type": "string" },
+        "negativePrompts": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
     },
     "openai": {
       "type": "object",
-      "additionalProperties": true
+      "properties": {
+        "model": { "type": "string" },
+        "size": { "type": "string" },
+        "quality": { "enum": ["auto", "low", "medium", "high"] },
+        "format": { "enum": ["png", "jpeg", "webp"] },
+        "compression": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 }
+      },
+      "additionalProperties": false
     },
     "gemini": {
       "type": "object",
-      "additionalProperties": true
+      "properties": {
+        "model": { "type": "string" },
+        "aspect": { "type": "string" },
+        "imageSize": { "enum": ["1K", "2K", "4K"] },
+        "googleSearch": { "type": "boolean" }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true

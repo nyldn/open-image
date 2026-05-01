@@ -3,23 +3,31 @@
   "$id": "https://github.com/nyldn/img/schemas/manifest.schema.json",
   "title": "img manifest",
   "type": "object",
-  "required": ["schemaVersion", "provider", "model", "files"],
+  "required": ["schemaVersion", "createdAt", "userPrompt", "apiPrompt", "provider", "model", "files"],
   "properties": {
-    "schemaVersion": {
-      "const": 1
-    },
-    "provider": {
-      "enum": ["openai", "gemini"]
-    },
-    "model": {
-      "type": "string"
+    "schemaVersion": { "const": 1 },
+    "createdAt": { "type": "string" },
+    "userPrompt": { "type": "string" },
+    "apiPrompt": { "type": "string" },
+    "provider": { "enum": ["openai", "gemini"] },
+    "model": { "type": "string" },
+    "configFiles": {
+      "type": "array",
+      "items": { "type": "string" }
     },
     "files": {
       "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "items": { "type": "string" }
+    },
+    "inputImages": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "planId": { "type": ["string", "null"] },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

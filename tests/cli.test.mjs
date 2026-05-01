@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   GEMINI_DEFAULT_MODEL,
+  MAX_IMAGES_PER_RUN,
   OPENAI_DEFAULT_MODEL,
   applyConfigDefaults,
   apiErrorFromResponse,
@@ -17,6 +18,7 @@ import {
   loadConfig,
   loadEnv,
   parseArgs,
+  resolveAssetType,
   run,
   userConfigPath,
   userEnvPath,
@@ -141,6 +143,19 @@ test("loadEnv reads project .env without overriding process env", () => {
   });
 });
 
+test("loadEnv leaves an existing process env value in place", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "img-env-precedence-"));
+  writeFileSync(join(cwd, ".env"), "IMG_TEST_KEY=from-file\n");
+  return withEnv({
+    IMG_CONFIG_HOME: tempConfigHome(),
+    IMG_TEST_KEY: "from-process",
+  }, async () => {
+    const args = parseArgs(["--prompt", "x", "--cwd", cwd]);
+    loadEnv(args, cwd);
+    assert.equal(process.env.IMG_TEST_KEY, "from-process");
+  });
+});
+
 test("loadEnv does not walk above the detected git project root", () => {
   const parent = mkdtempSync(join(tmpdir(), "img-env-parent-"));
   const repo = join(parent, "repo");
@@ -210,6 +225,14 @@ test("loadConfig reads img.config.json from cwd", () => {
   });
 });
 
+test("loadConfig rejects missing explicit config files", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "img-missing-config-"));
+  assert.throws(
+    () => loadConfig(parseArgs(["--cwd", cwd, "--config", "missing.json", "A", "prompt"])),
+    /Explicit config file not found/,
+  );
+});
+
 test("loadConfig layers user config and nearest project config", () => {
   const configHome = tempConfigHome();
   const repo = mkdtempSync(join(tmpdir(), "img-layered-"));
@@ -248,6 +271,44 @@ test("loadConfig layers user config and nearest project config", () => {
   });
 });
 
+test("resolveAssetType accepts configured ids and aliases", () => {
+  const config = {
+    assetTypes: {
+      "feature-card": {
+        aliases: ["feature tile", "benefit card"],
+        provider: "openai",
+      },
+    },
+  };
+  assert.equal(resolveAssetType(config, "feature-card").id, "feature-card");
+  assert.equal(resolveAssetType(config, "benefit card").id, "feature-card");
+  assert.throws(() => resolveAssetType(config, "unknown"), /Unknown asset type/);
+});
+
+test("asset type defaults can shape a dry-run request", async () => {
+  const cwd = mkdtempSync(join(tmpdir(), "img-asset-type-"));
+  writeFileSync(join(cwd, "img.config.json"), JSON.stringify({
+    schemaVersion: 1,
+    assetTypes: {
+      "feature-card": {
+        aliases: ["benefit card"],
+        provider: "gemini",
+        aspect: "4:3",
+        outputDir: "public/generated/features",
+        style: "Use a compact editorial feature-card composition.",
+      },
+    },
+  }, null, 2));
+
+  await withEnv({ IMG_CONFIG_HOME: tempConfigHome() }, async () => {
+    const result = await run(["--dry-run", "--cwd", cwd, "--asset-type", "benefit card", "--prompt", "A member savings image"]);
+    assert.equal(result.assetType, "feature-card");
+    assert.equal(result.provider, "gemini");
+    assert.equal(result.outputDir, join(cwd, "public/generated/features"));
+    assert.match(result.apiPrompt, /compact editorial feature-card/);
+  });
+});
+
 test("validateArgs allows dry-run without API keys", () => {
   const args = parseArgs(["--provider", "openai", "--prompt", "A clean app icon"]);
   assert.doesNotThrow(() => validateArgs(args, false));
@@ -256,6 +317,19 @@ test("validateArgs allows dry-run without API keys", () => {
 test("validateArgs rejects unsupported Gemini image sizes before calling the API", () => {
   const args = parseArgs(["--provider", "gemini", "--prompt", "A clean app icon", "--image-size", "0.5K"]);
   assert.throws(() => validateArgs(args, false), /Use 1K, 2K, or 4K/);
+});
+
+test("validateArgs enforces configured image count limit", () => {
+  const args = parseArgs(["--prompt", "A clean app icon", "--count", "3"]);
+  applyConfigDefaults(args, {
+    limits: { maxImagesPerRun: 2 },
+  });
+  assert.throws(() => validateArgs(args, false), /exceeds the configured image limit \(2\)/);
+});
+
+test("validateArgs allows counts up to the absolute image cap", () => {
+  const args = parseArgs(["--prompt", "A clean app icon", "--count", String(MAX_IMAGES_PER_RUN)]);
+  assert.doesNotThrow(() => validateArgs(args, false));
 });
 
 test("apiErrorFromResponse preserves provider status, request id, details, and hint", async () => {
@@ -360,6 +434,7 @@ test("setup --project creates only project config", async () => {
     assert.equal(result.projectConfigFile, join(repo, "img.config.json"));
     assert.equal(existsSync(userEnvPath({ IMG_CONFIG_HOME: configHome })), false);
     assert.equal(existsSync(result.projectConfigFile), true);
+    assert.equal(statSync(result.projectConfigFile).mode & 0o777, 0o644);
   });
 });
 
@@ -399,5 +474,22 @@ test("check-health reports config layers without exposing secrets", async () => 
     assert.equal(result.keys.openai, "present");
     assert.equal(JSON.stringify(result).includes("sk-test-secret"), false);
     assert.equal(result.checks.some((check) => check.name === "brand-reference:docs/brand.md" && check.status === "warning"), true);
+  });
+});
+
+test("check-health and dry-run warn when allowSilentMutation is set", async () => {
+  const repo = mkdtempSync(join(tmpdir(), "img-silent-mutation-"));
+  mkdirSync(join(repo, ".git"));
+  writeFileSync(join(repo, "img.config.json"), JSON.stringify({
+    schemaVersion: 1,
+    allowSilentMutation: true,
+  }, null, 2));
+
+  await withEnv({ IMG_CONFIG_HOME: tempConfigHome() }, async () => {
+    const health = await run(["check-health", "--cwd", repo]);
+    assert.equal(health.checks.some((check) => check.name === "runtime-warning-project" && check.status === "warning"), true);
+
+    const dryRun = await run(["--dry-run", "--cwd", repo, "--prompt", "A clean app icon"]);
+    assert.equal(dryRun.warnings.some((warning) => warning.includes("allowSilentMutation=true")), true);
   });
 });

@@ -1,7 +1,7 @@
 ---
 description: Generate an image with Gemini 3.1 Flash Image Preview.
 argument-hint: "[prompt]"
-allowed-tools: "Bash(img:*)"
+allowed-tools: "Bash(${CLAUDE_PLUGIN_ROOT}/bin/img:*)"
 ---
 
 # Gemini Image Generation
@@ -15,7 +15,7 @@ $ARGUMENTS
 Run:
 
 ```bash
-img --provider gemini --prompt "$ARGUMENTS"
+"${CLAUDE_PLUGIN_ROOT}/bin/img" --provider gemini --prompt "$ARGUMENTS"
 ```
 
 Report the saved file path. Do not fall back to OpenAI if Gemini fails.

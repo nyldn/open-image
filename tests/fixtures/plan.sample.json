@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "request": {
+    "prompt": "review this landing page and create on-brand hero and feature-card images",
+    "cwd": "/tmp/example",
+    "createdAt": "2026-05-01T00:00:00.000Z"
+  },
+  "context": {
+    "projectRoot": "/tmp/example",
+    "configFiles": ["/tmp/example/img.config.json"],
+    "assetType": "landing-page-images"
+  },
+  "delivery": {
+    "mode": "site-proposal",
+    "requiresConfirmation": false
+  },
+  "confirmation": {
+    "planId": "sample-plan-id",
+    "requiresSiteEditConfirmation": false,
+    "requiresProductionConfirmation": false
+  },
+  "estimate": {
+    "images": 4,
+    "maxCostUsd": 25
+  },
+  "generation": {
+    "provider": "openai",
+    "model": "gpt-image-2",
+    "count": 4,
+    "outputDir": "public/generated/landing"
+  },
+  "assets": [
+    {
+      "id": "landing-hero",
+      "filename": "landing-hero",
+      "prompt": "final composed prompt",
+      "target": {
+        "kind": "site-slot",
+        "file": "src/pages/index.astro",
+        "hint": "homepage hero image"
+      }
+    }
+  ],
+  "recipes": [
+    {
+      "source": "awesome-gpt-image-2",
+      "revision": "c168bd8b6686a40579af7a1cd25ac14aa07df16b",
+      "id": "product-marketing-example"
+    }
+  ]
+}

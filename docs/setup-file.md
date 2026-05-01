@@ -55,8 +55,13 @@ Precedence:
 4. plugin defaults
 
 Prompt arrays append from user config to project config and remove exact
-duplicates. Project config can set `mergeMode: "replace"` on an object when a
-supported array field should replace lower-precedence defaults.
+duplicates. Project config can set `mergeMode: "replace"` on an object to
+replace that object's supported arrays instead of appending to them.
+
+Environment values already present in the shell or agent process take
+precedence over env files. Missing values are filled from the explicit
+`--env-file`, nearest project `.env.local`, nearest project `.env`, then
+`~/.config/img/.env.local`.
 
 ## Template
 

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 export const OPENAI_DEFAULT_MODEL = "gpt-image-2";
 export const GEMINI_DEFAULT_MODEL = "gemini-3.1-flash-image-preview";
 export const DEFAULT_CONFIG_FILENAME = "img.config.json";
+export const MAX_IMAGES_PER_RUN = 12;
 
 const PROVIDERS = new Set(["openai", "gemini"]);
 const OPENAI_FORMATS = new Set(["png", "jpeg", "webp"]);
@@ -109,6 +110,7 @@ export function parseArgs(argv = []) {
     activate: false,
     configFile: "",
     provider: process.env.IMG_PROVIDER || "openai",
+    assetType: "",
     prompt: "",
     inputs: [],
     mask: "",
@@ -171,6 +173,11 @@ export function parseArgs(argv = []) {
       case "--provider":
         args.provider = readValue(argv, i, token);
         markExplicit(args, "provider");
+        i += 1;
+        break;
+      case "--asset-type":
+        args.assetType = readValue(argv, i, token);
+        markExplicit(args, "assetType");
         i += 1;
         break;
       case "--prompt":
@@ -338,29 +345,29 @@ export function loadConfig(args, root = pluginRoot()) {
   const layers = [];
   if (args.configFile) {
     const explicitPath = resolve(args.cwd, args.configFile);
-    if (existsSync(explicitPath)) {
-      const config = safeReadJson(explicitPath);
-      return {
-        path: explicitPath,
-        config,
-        layers: [{ type: "explicit", path: explicitPath, config }],
-      };
+    if (!existsSync(explicitPath)) {
+      throw new Error(`Explicit config file not found: ${explicitPath}`);
     }
-    return { path: null, config: {}, layers: [] };
-  } else {
-    const globalPath = userConfigPath();
-    if (existsSync(globalPath)) {
-      layers.push({ type: "user", path: globalPath, config: safeReadJson(globalPath) });
-    }
-    const projectRoot = findProjectRoot(args.cwd);
-    const projectPath = findUpwardFile(args.cwd, [DEFAULT_CONFIG_FILENAME, ".img.json"], projectRoot || resolve(args.cwd));
-    if (projectPath) {
-      layers.push({ type: "project", path: projectPath, config: safeReadJson(projectPath) });
-    }
-    const pluginDefaultPath = resolve(root, DEFAULT_CONFIG_FILENAME);
-    if (layers.length === 0 && existsSync(pluginDefaultPath)) {
-      layers.push({ type: "plugin", path: pluginDefaultPath, config: safeReadJson(pluginDefaultPath) });
-    }
+    const config = safeReadJson(explicitPath);
+    return {
+      path: explicitPath,
+      config,
+      layers: [{ type: "explicit", path: explicitPath, config }],
+    };
+  }
+
+  const globalPath = userConfigPath();
+  if (existsSync(globalPath)) {
+    layers.push({ type: "user", path: globalPath, config: safeReadJson(globalPath) });
+  }
+  const projectRoot = findProjectRoot(args.cwd);
+  const projectPath = findUpwardFile(args.cwd, [DEFAULT_CONFIG_FILENAME, ".img.json"], projectRoot || resolve(args.cwd));
+  if (projectPath) {
+    layers.push({ type: "project", path: projectPath, config: safeReadJson(projectPath) });
+  }
+  const pluginDefaultPath = resolve(root, DEFAULT_CONFIG_FILENAME);
+  if (layers.length === 0 && existsSync(pluginDefaultPath)) {
+    layers.push({ type: "plugin", path: pluginDefaultPath, config: safeReadJson(pluginDefaultPath) });
   }
 
   const merged = layers.reduce((config, layer) => mergeConfig(config, layer.config), {});
@@ -374,6 +381,22 @@ export function loadConfig(args, root = pluginRoot()) {
 
 function defaultModelForProvider(provider) {
   return provider === "gemini" ? GEMINI_DEFAULT_MODEL : OPENAI_DEFAULT_MODEL;
+}
+
+function normalizeAssetType(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+export function resolveAssetType(config = {}, requested = "") {
+  const target = normalizeAssetType(requested);
+  if (!target) return null;
+  const assetTypes = config.assetTypes || {};
+  for (const [id, assetConfig] of Object.entries(assetTypes)) {
+    const aliases = normalizePromptList(assetConfig?.aliases);
+    const names = [id, ...aliases].map(normalizeAssetType);
+    if (names.includes(target)) return { id, config: assetConfig || {} };
+  }
+  throw new Error(`Unknown asset type "${requested}". Add it to assetTypes in img.config.json or use a configured alias.`);
 }
 
 function normalizePromptList(value) {
@@ -419,26 +442,49 @@ export function applyConfigDefaults(args, config = {}) {
   maybeApply(args, "provider", provider);
   args.provider = args.provider.toLowerCase();
 
-  maybeApply(args, "outputDir", config.outputDir);
-  maybeApply(args, "count", config.count);
-  maybeApply(args, "open", config.openAfterGeneration);
-
-  if (!args._explicit.has("model")) {
-    args.model = defaultModelForProvider(args.provider);
+  let assetConfig = {};
+  if (args.assetType) {
+    const resolvedAssetType = resolveAssetType(config, args.assetType);
+    args.assetType = resolvedAssetType.id;
+    assetConfig = resolvedAssetType.config;
+    maybeApply(args, "provider", assetConfig.provider);
+    args.provider = args.provider.toLowerCase();
   }
 
+  maybeApply(args, "outputDir", config.outputDir);
+  maybeApply(args, "outputDir", assetConfig.outputDir);
+  maybeApply(args, "count", config.count);
+  maybeApply(args, "open", config.openAfterGeneration);
+  args.limits = config.limits || {};
+
   const providerConfig = args.provider === "gemini" ? config.gemini || {} : config.openai || {};
-  maybeApply(args, "model", providerConfig.model);
+  if (!args._explicit.has("model")) {
+    args.model = providerConfig.model || defaultModelForProvider(args.provider);
+  }
   maybeApply(args, "size", providerConfig.size);
+  maybeApply(args, "size", assetConfig.size);
   maybeApply(args, "quality", providerConfig.quality);
   maybeApply(args, "format", providerConfig.format);
   maybeApply(args, "compression", providerConfig.compression);
   maybeApply(args, "aspect", providerConfig.aspect);
+  maybeApply(args, "aspect", assetConfig.aspect);
   maybeApply(args, "imageSize", providerConfig.imageSize);
   maybeApply(args, "googleSearch", providerConfig.googleSearch);
 
   args.format = args.format.toLowerCase();
-  args.promptConfig = config.prompt || {};
+  args.promptConfig = {
+    prePrompts: uniqueStrings([
+      ...normalizePromptList(config.prompt?.prePrompts),
+      ...normalizePromptList(config.prompt?.prePrompt),
+      ...normalizePromptList(config.brand?.prePrompts),
+      ...normalizePromptList(assetConfig.style),
+    ]),
+    negativePrompts: uniqueStrings([
+      ...normalizePromptList(config.prompt?.negativePrompts),
+      ...normalizePromptList(config.prompt?.negativePrompt),
+      ...normalizePromptList(config.brand?.negativePrompts),
+    ]),
+  };
   args.apiPrompt = composePrompt(args.prompt, args.promptConfig);
   return args;
 }
@@ -528,8 +574,15 @@ export function validateArgs(args, requireKeys = true) {
   if (!args.prompt.trim()) {
     throw new Error("Missing prompt. Use --prompt \"...\" or pass the prompt as positional text.");
   }
-  if (!Number.isInteger(args.count) || args.count < 1 || args.count > 10) {
-    throw new Error("--count must be an integer from 1 to 10");
+  if (!Number.isInteger(args.count) || args.count < 1 || args.count > MAX_IMAGES_PER_RUN) {
+    throw new Error(`--count must be an integer from 1 to ${MAX_IMAGES_PER_RUN}`);
+  }
+  const configuredLimit = args.limits?.maxImagesPerRun;
+  const effectiveLimit = Number.isInteger(configuredLimit)
+    ? Math.min(configuredLimit, MAX_IMAGES_PER_RUN)
+    : MAX_IMAGES_PER_RUN;
+  if (args.count > effectiveLimit) {
+    throw new Error(`--count ${args.count} exceeds the configured image limit (${effectiveLimit}).`);
   }
   for (const input of args.inputs) {
     if (!existsSync(resolve(args.cwd, input))) throw new Error(`Input image not found: ${input}`);
@@ -605,10 +658,10 @@ function readConfigTemplate() {
   return readFileSync(templatePath, "utf8");
 }
 
-function writeSetupConfigFile(configPath) {
+function writeSetupConfigFile(configPath, mode = 0o644) {
   if (existsSync(configPath)) return false;
   mkdirSync(dirname(configPath), { recursive: true });
-  writeFileSync(configPath, readConfigTemplate(), { mode: 0o600 });
+  writeFileSync(configPath, readConfigTemplate(), { mode });
   return true;
 }
 
@@ -652,7 +705,7 @@ function setupCommand(args, loadedEnvFiles) {
   const userConfig = userConfigPath();
   const projectConfig = resolve(projectRoot, args.configFile || DEFAULT_CONFIG_FILENAME);
   const created = scope === "user" || scope === "both" ? writeSetupEnvFile(envPath) : false;
-  const userConfigCreated = scope === "user" || scope === "both" ? writeSetupConfigFile(userConfig) : false;
+  const userConfigCreated = scope === "user" || scope === "both" ? writeSetupConfigFile(userConfig, 0o600) : false;
   const projectConfigCreated = scope === "project" || scope === "both" ? writeSetupConfigFile(projectConfig) : false;
   const loadedConfig = loadConfig({ ...args, cwd: projectRoot });
   const defaultProvider = loadedConfig.config.defaultProvider || process.env.IMG_PROVIDER || "openai";
@@ -714,16 +767,29 @@ function configErrors(config, type) {
   if (provider && !PROVIDERS.has(String(provider).toLowerCase())) {
     errors.push(`${type} config defaultProvider must be openai or gemini`);
   }
-  if (config.count !== undefined && (!Number.isInteger(config.count) || config.count < 1 || config.count > 10)) {
-    errors.push(`${type} config count must be an integer from 1 to 10`);
+  if (config.count !== undefined && (!Number.isInteger(config.count) || config.count < 1 || config.count > MAX_IMAGES_PER_RUN)) {
+    errors.push(`${type} config count must be an integer from 1 to ${MAX_IMAGES_PER_RUN}`);
   }
-  if (config.limits?.maxImagesPerRun !== undefined && (!Number.isInteger(config.limits.maxImagesPerRun) || config.limits.maxImagesPerRun < 1)) {
-    errors.push(`${type} config limits.maxImagesPerRun must be a positive integer`);
+  if (config.limits?.maxImagesPerRun !== undefined && (!Number.isInteger(config.limits.maxImagesPerRun) || config.limits.maxImagesPerRun < 1 || config.limits.maxImagesPerRun > MAX_IMAGES_PER_RUN)) {
+    errors.push(`${type} config limits.maxImagesPerRun must be an integer from 1 to ${MAX_IMAGES_PER_RUN}`);
   }
   if (config.limits?.maxCostPerRunUsd !== undefined && (typeof config.limits.maxCostPerRunUsd !== "number" || config.limits.maxCostPerRunUsd < 0)) {
     errors.push(`${type} config limits.maxCostPerRunUsd must be a non-negative number`);
   }
   return errors;
+}
+
+function runtimeWarnings(layers = []) {
+  const warnings = [];
+  for (const layer of layers) {
+    if (layer.type !== "project" && layer.config?.allowSilentMutation === true) {
+      warnings.push(`${layer.type} config sets allowSilentMutation=true, but only project config may request it.`);
+    }
+    if (layer.type === "project" && layer.config?.allowSilentMutation === true) {
+      warnings.push("allowSilentMutation=true is set in project config; runtime confirmation is still required for site edits and production uploads.");
+    }
+  }
+  return warnings;
 }
 
 function referencedBrandFiles(config = {}) {
@@ -796,6 +862,9 @@ function healthCommand(args, loadedEnvFiles, loadedConfig) {
     }
     for (const error of configErrors(layer.config, layer.type)) {
       add(`config-error-${layer.type}`, "error", error, { path: layer.path });
+    }
+    for (const warning of runtimeWarnings([layer])) {
+      add(`runtime-warning-${layer.type}`, "warning", warning, { path: layer.path });
     }
   }
 
@@ -1157,6 +1226,7 @@ Usage:
 
 Options:
   --provider openai|gemini       Provider to call. Default: config defaultProvider, IMG_PROVIDER, or openai.
+  --asset-type VALUE             Configured asset type id or alias.
   --prompt, -p TEXT              Image prompt.
   --config FILE                  Explicit config file.
   --env-file FILE                Explicit env file.
@@ -1169,7 +1239,7 @@ Options:
   --format VALUE                 OpenAI output format: png, jpeg, webp.
   --aspect RATIO                 Gemini aspect ratio. Default: 1:1.
   --image-size VALUE             Gemini image size: 1K, 2K, 4K.
-  --count N                      Number of images to generate, 1-10.
+  --count N                      Number of images to generate, 1-${MAX_IMAGES_PER_RUN}.
   --open                         Open the first saved image with the OS viewer.
   --dry-run                      Validate and print request metadata without API calls.
 `;
@@ -1212,10 +1282,12 @@ export async function run(rawArgs = []) {
       endpoint,
       prompt: args.prompt,
       apiPrompt: args.apiPrompt,
+      assetType: args.assetType || null,
       inputs: args.inputs,
       outputDir: resolve(args.cwd, args.outputDir),
       loadedEnvFiles,
       configFile: loadedConfig.path,
+      warnings: runtimeWarnings(loadedConfig.layers),
     };
   }
 
@@ -1232,6 +1304,7 @@ export async function run(rawArgs = []) {
     provider: args.provider,
     model: args.model,
     configFile: loadedConfig.path,
+    assetType: args.assetType || null,
     files: allFiles,
     responseText,
   };

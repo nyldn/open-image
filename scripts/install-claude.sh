@@ -4,6 +4,7 @@ set -euo pipefail
 MARKETPLACE="nyldn/img"
 PLUGIN="img@img-marketplace"
 SCOPE="user"
+INSTALL_BARE_ALIAS="false"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 fail() { echo "  [error] $1"; exit 1; }
@@ -15,6 +16,10 @@ while [ "$#" -gt 0 ]; do
       [ "$#" -ge 2 ] || fail "--scope requires user, project, or local"
       SCOPE="$2"
       shift 2
+      ;;
+    --bare-alias)
+      INSTALL_BARE_ALIAS="true"
+      shift
       ;;
     *)
       fail "Unknown argument: $1"
@@ -30,8 +35,12 @@ claude plugin marketplace add "$MARKETPLACE" --scope "$SCOPE" || true
 echo "Installing $PLUGIN..."
 claude plugin install "$PLUGIN" --scope "$SCOPE"
 
-echo "Installing bare /img command alias..."
-"$SCRIPT_DIR/install-img-alias.sh"
+if [ "$INSTALL_BARE_ALIAS" = "true" ]; then
+  echo "Installing optional bare /img command alias..."
+  "$SCRIPT_DIR/install-img-alias.sh"
+else
+  echo "Skipping bare /img alias. Use /img:img, or rerun with --bare-alias for a local user-scope alias."
+fi
 
 info "Installed $PLUGIN"
-echo "Restart Claude Code, then use /img."
+echo "Restart Claude Code, then use /img:img or /img:setup."

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-05-01T00:00:00.000Z",
+  "userPrompt": "A clean app icon",
+  "apiPrompt": "A clean app icon",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "configFiles": ["/tmp/example/img.config.json"],
+  "files": ["/tmp/example/img-output/openai-a-clean-app-icon.png"],
+  "inputImages": [],
+  "planId": null,
+  "warnings": []
+}

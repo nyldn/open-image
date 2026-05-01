@@ -1,6 +1,7 @@
 # 🖼️ Image Agency
 
-Image Agency is a Claude Code and Codex Image generation tool for brands and agencies working across one or multiple clients
+Image Agency is a Claude Code and Codex image generation tool for brands and
+agencies working across one or multiple clients.
 
 It can call:
 
@@ -8,7 +9,7 @@ It can call:
 - Google `gemini-3.1-flash-image-preview`
 
 <p align="center">
-  <img src="docs/assets/demo.gif" alt="Image Agency demo showing Claude /img, Codex $img, planning, setup, and generated asset workflow" width="720">
+  <img src="docs/assets/demo.gif" alt="Image Agency demo showing Claude /img:img, Codex $img, planning, setup, and generated asset workflow" width="720">
 </p>
 
 ## Primary Workflows
@@ -16,10 +17,10 @@ It can call:
 Use natural language from the agent you already have open:
 
 ```text
-/img review this landing page and create on-brand hero and feature-card images, then prepare a site insertion proposal
+/img:img review this landing page and create on-brand hero and feature-card images, then prepare a site insertion proposal
 $img "create three launch social cards for the new member app"
-/img turn the homepage hero into a warmer 16:9 editorial image that matches this site
-/img prepare replacement imagery for these pricing feature tiles, but do not edit the site yet
+/img:img turn the homepage hero into a warmer 16:9 editorial image that matches this site
+/img:img prepare replacement imagery for these pricing feature tiles, but do not edit the site yet
 ```
 
 For terminal workflows, show the loader:
@@ -66,17 +67,17 @@ Marketplace install:
 /plugin install img@img-marketplace
 ```
 
-The Claude installer creates a bare user command:
+Marketplace plugin commands:
 
-- `/img`
-- `/img setup`
-
-Marketplace plugin commands remain available as compatibility commands:
-
+- `/img:img`
 - `/img:setup`
 - `/img:openai`
 - `/img:gemini`
 - `/img:edit`
+
+The local installer can create an optional bare `/img` user command with
+`./scripts/install-claude.sh --bare-alias`, but the namespaced plugin commands
+are canonical because they stay tied to the installed plugin version.
 
 For local development:
 

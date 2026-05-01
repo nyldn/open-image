@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "product-marketing-example",
+  "sourceRepo": "awesome-gpt-image-2",
+  "sourceUrl": "https://github.com/YouMind-OpenLab/awesome-gpt-image-2",
+  "sourceCommit": "c168bd8b6686a40579af7a1cd25ac14aa07df16b",
+  "license": "MIT",
+  "attribution": "Recipe adapted from YouMind-OpenLab/awesome-gpt-image-2.",
+  "notice": null,
+  "modelFamily": "openai",
+  "category": "product-marketing",
+  "useCase": "landing-page imagery",
+  "promptTemplate": "Create an on-brand product marketing image for {{subject}}.",
+  "variables": ["subject"]
+}

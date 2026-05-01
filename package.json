@@ -39,6 +39,7 @@
     "skills/",
     "src/",
     "templates/",
+    "tests/",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
