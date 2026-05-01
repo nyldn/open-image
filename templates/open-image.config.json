@@ -1,0 +1,24 @@
+{
+  "defaultProvider": "openai",
+  "outputDir": "./open-image-output",
+  "openAfterGeneration": false,
+  "count": 1,
+  "prompt": {
+    "prePrompts": [],
+    "negativePrompts": []
+  },
+  "openai": {
+    "model": "gpt-image-2",
+    "size": "auto",
+    "quality": "auto",
+    "format": "png",
+    "compression": null
+  },
+  "gemini": {
+    "model": "gemini-3.1-flash-image-preview",
+    "aspect": "1:1",
+    "imageSize": "1K",
+    "googleSearch": false
+  }
+}
+

@@ -30,7 +30,9 @@ const requiredFiles = [
   "commands/gemini.md",
   "commands/edit.md",
   "commands/setup.md",
+  "docs/setup-file.md",
   "skills/open-image/SKILL.md",
+  "templates/open-image.config.json",
   ".env.example",
   "README.md",
   "CHANGELOG.md",
@@ -52,4 +54,9 @@ const skill = readFileSync(join(root, "skills/open-image/SKILL.md"), "utf8");
 assert(skill.includes("gpt-image-2"), "Skill must mention gpt-image-2");
 assert(skill.includes("gemini-3.1-flash-image-preview"), "Skill must mention Gemini model");
 
-console.log(JSON.stringify({ ok: true, checked: requiredFiles.length + 8 }, null, 2));
+const configTemplate = readJson("templates/open-image.config.json");
+assert(configTemplate.defaultProvider === "openai", "Config template defaultProvider must be openai");
+assert(Array.isArray(configTemplate.prompt.prePrompts), "Config template must include prompt.prePrompts");
+assert(Array.isArray(configTemplate.prompt.negativePrompts), "Config template must include prompt.negativePrompts");
+
+console.log(JSON.stringify({ ok: true, checked: requiredFiles.length + 11 }, null, 2));

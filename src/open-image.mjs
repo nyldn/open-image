@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 export const OPENAI_DEFAULT_MODEL = "gpt-image-2";
 export const GEMINI_DEFAULT_MODEL = "gemini-3.1-flash-image-preview";
+export const DEFAULT_CONFIG_FILENAME = "open-image.config.json";
 
 const PROVIDERS = new Set(["openai", "gemini"]);
 const OPENAI_FORMATS = new Set(["png", "jpeg", "webp"]);
@@ -54,9 +55,15 @@ function readValue(argv, index, flag) {
   return argv[index + 1];
 }
 
+function markExplicit(args, key) {
+  args._explicit.add(key);
+}
+
 export function parseArgs(argv = []) {
   const args = {
+    _explicit: new Set(),
     setup: false,
+    configFile: "",
     provider: process.env.OPEN_IMAGE_PROVIDER || "openai",
     prompt: "",
     inputs: [],
@@ -89,11 +96,13 @@ export function parseArgs(argv = []) {
         break;
       case "--provider":
         args.provider = readValue(argv, i, token);
+        markExplicit(args, "provider");
         i += 1;
         break;
       case "--prompt":
       case "-p":
         args.prompt = readValue(argv, i, token);
+        markExplicit(args, "prompt");
         i += 1;
         break;
       case "--input":
@@ -109,6 +118,7 @@ export function parseArgs(argv = []) {
       case "--output":
       case "-o":
         args.outputDir = readValue(argv, i, token);
+        markExplicit(args, "outputDir");
         i += 1;
         break;
       case "--filename":
@@ -117,35 +127,48 @@ export function parseArgs(argv = []) {
         break;
       case "--model":
         args.model = readValue(argv, i, token);
+        markExplicit(args, "model");
         i += 1;
         break;
       case "--size":
         args.size = readValue(argv, i, token);
+        markExplicit(args, "size");
         i += 1;
         break;
       case "--quality":
         args.quality = readValue(argv, i, token);
+        markExplicit(args, "quality");
         i += 1;
         break;
       case "--format":
         args.format = readValue(argv, i, token);
+        markExplicit(args, "format");
         i += 1;
         break;
       case "--compression":
         args.compression = Number(readValue(argv, i, token));
+        markExplicit(args, "compression");
         i += 1;
         break;
       case "--count":
       case "-n":
         args.count = Number.parseInt(readValue(argv, i, token), 10);
+        markExplicit(args, "count");
         i += 1;
         break;
       case "--aspect":
         args.aspect = readValue(argv, i, token);
+        markExplicit(args, "aspect");
         i += 1;
         break;
       case "--image-size":
         args.imageSize = readValue(argv, i, token);
+        markExplicit(args, "imageSize");
+        i += 1;
+        break;
+      case "--config":
+        args.configFile = readValue(argv, i, token);
+        markExplicit(args, "configFile");
         i += 1;
         break;
       case "--env-file":
@@ -158,12 +181,14 @@ export function parseArgs(argv = []) {
         break;
       case "--open":
         args.open = true;
+        markExplicit(args, "open");
         break;
       case "--dry-run":
         args.dryRun = true;
         break;
       case "--google-search":
         args.googleSearch = true;
+        markExplicit(args, "googleSearch");
         break;
       case "--help":
       case "-h":
@@ -187,6 +212,105 @@ export function parseArgs(argv = []) {
   }
   args.format = args.format.toLowerCase();
 
+  return args;
+}
+
+function safeReadJson(filePath) {
+  try {
+    return JSON.parse(readFileSync(filePath, "utf8"));
+  } catch (error) {
+    throw new Error(`Invalid Open Image config JSON at ${filePath}: ${error.message}`);
+  }
+}
+
+export function loadConfig(args, root = pluginRoot()) {
+  const candidates = [];
+  if (args.configFile) {
+    candidates.push(resolve(args.cwd, args.configFile));
+  } else {
+    candidates.push(resolve(args.cwd, DEFAULT_CONFIG_FILENAME));
+    candidates.push(resolve(args.cwd, ".open-image.json"));
+    candidates.push(resolve(root, DEFAULT_CONFIG_FILENAME));
+  }
+
+  const seen = new Set();
+  for (const file of candidates) {
+    if (seen.has(file)) continue;
+    seen.add(file);
+    if (!existsSync(file)) continue;
+    return { path: file, config: safeReadJson(file) };
+  }
+  return { path: null, config: {} };
+}
+
+function defaultModelForProvider(provider) {
+  return provider === "gemini" ? GEMINI_DEFAULT_MODEL : OPENAI_DEFAULT_MODEL;
+}
+
+function normalizePromptList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+  return [];
+}
+
+export function composePrompt(userPrompt, promptConfig = {}) {
+  const prePrompts = [
+    ...normalizePromptList(promptConfig.prePrompt),
+    ...normalizePromptList(promptConfig.prePrompts),
+  ];
+  const negativePrompts = [
+    ...normalizePromptList(promptConfig.negativePrompt),
+    ...normalizePromptList(promptConfig.negativePrompts),
+  ];
+  if (prePrompts.length === 0 && negativePrompts.length === 0) {
+    return userPrompt;
+  }
+  const parts = [];
+  if (prePrompts.length > 0) {
+    parts.push(`Always apply these instructions:\n${prePrompts.join("\n")}`);
+  }
+  parts.push(`User prompt:\n${userPrompt}`);
+  if (negativePrompts.length > 0) {
+    parts.push(`Negative prompt - avoid:\n${negativePrompts.join("\n")}`);
+  }
+  return parts.join("\n\n");
+}
+
+function maybeApply(args, key, value) {
+  if (args._explicit?.has?.(key) || value === undefined || value === null || value === "") return;
+  args[key] = value;
+}
+
+export function applyConfigDefaults(args, config = {}) {
+  const provider = config.defaultProvider || config.provider;
+  maybeApply(args, "provider", provider);
+  args.provider = args.provider.toLowerCase();
+
+  maybeApply(args, "outputDir", config.outputDir);
+  maybeApply(args, "count", config.count);
+  maybeApply(args, "open", config.openAfterGeneration);
+
+  if (!args._explicit.has("model")) {
+    args.model = defaultModelForProvider(args.provider);
+  }
+
+  const providerConfig = args.provider === "gemini" ? config.gemini || {} : config.openai || {};
+  maybeApply(args, "model", providerConfig.model);
+  maybeApply(args, "size", providerConfig.size);
+  maybeApply(args, "quality", providerConfig.quality);
+  maybeApply(args, "format", providerConfig.format);
+  maybeApply(args, "compression", providerConfig.compression);
+  maybeApply(args, "aspect", providerConfig.aspect);
+  maybeApply(args, "imageSize", providerConfig.imageSize);
+  maybeApply(args, "googleSearch", providerConfig.googleSearch);
+
+  args.format = args.format.toLowerCase();
+  args.promptConfig = config.prompt || {};
+  args.apiPrompt = composePrompt(args.prompt, args.promptConfig);
   return args;
 }
 
@@ -306,22 +430,66 @@ function writeSetupEnvFile(envPath) {
   const content = [
     "OPENAI_API_KEY=",
     "GEMINI_API_KEY=",
-    "OPEN_IMAGE_PROVIDER=openai",
-    "OPEN_IMAGE_OUTPUT_DIR=./open-image-output",
     "",
   ].join("\n");
   writeFileSync(envPath, content, { mode: 0o600 });
   return true;
 }
 
+function defaultConfigTemplate() {
+  return {
+    defaultProvider: "openai",
+    outputDir: "./open-image-output",
+    openAfterGeneration: false,
+    count: 1,
+    prompt: {
+      prePrompts: [],
+      negativePrompts: [],
+    },
+    openai: {
+      model: OPENAI_DEFAULT_MODEL,
+      size: "auto",
+      quality: "auto",
+      format: "png",
+      compression: null,
+    },
+    gemini: {
+      model: GEMINI_DEFAULT_MODEL,
+      aspect: "1:1",
+      imageSize: "1K",
+      googleSearch: false,
+    },
+  };
+}
+
+function readConfigTemplate() {
+  const templatePath = resolve(pluginRoot(), "templates", DEFAULT_CONFIG_FILENAME);
+  if (!existsSync(templatePath)) {
+    return `${JSON.stringify(defaultConfigTemplate(), null, 2)}\n`;
+  }
+  return readFileSync(templatePath, "utf8");
+}
+
+function writeSetupConfigFile(configPath) {
+  if (existsSync(configPath)) return false;
+  mkdirSync(dirname(configPath), { recursive: true });
+  writeFileSync(configPath, readConfigTemplate(), { mode: 0o600 });
+  return true;
+}
+
 function setupCommand(args, loadedEnvFiles) {
   const envPath = resolve(args.cwd, args.envFile || ".env.local");
+  const configPath = resolve(args.cwd, args.configFile || DEFAULT_CONFIG_FILENAME);
   const created = writeSetupEnvFile(envPath);
-  const defaultProvider = process.env.OPEN_IMAGE_PROVIDER || "openai";
+  const configCreated = writeSetupConfigFile(configPath);
+  const loadedConfig = loadConfig({ ...args, configFile: configPath });
+  const defaultProvider = loadedConfig.config.defaultProvider || process.env.OPEN_IMAGE_PROVIDER || "openai";
   return {
     setup: true,
     envFile: envPath,
     envFileCreated: created,
+    configFile: configPath,
+    configFileCreated: configCreated,
     defaultProvider,
     keys: {
       openai: envStatus(process.env.OPENAI_API_KEY),
@@ -331,6 +499,7 @@ function setupCommand(args, loadedEnvFiles) {
     nextSteps: [
       "Add OPENAI_API_KEY to the env file for the default /open-image path.",
       "Add GEMINI_API_KEY only if you want Gemini image generation too.",
+      "Edit open-image.config.json to change provider/model defaults, pre-prompts, or negative prompts.",
       "Run: open-image generate a photorealistic 2:1 image of a dog",
     ],
   };
@@ -339,7 +508,7 @@ function setupCommand(args, loadedEnvFiles) {
 export function buildOpenAIJsonBody(args) {
   const body = {
     model: args.model,
-    prompt: args.prompt,
+    prompt: args.apiPrompt || composePrompt(args.prompt, args.promptConfig),
   };
   if (args.size) body.size = args.size;
   if (args.quality) body.quality = args.quality;
@@ -349,7 +518,7 @@ export function buildOpenAIJsonBody(args) {
 }
 
 export function buildGeminiBody(args) {
-  const parts = [{ text: args.prompt }];
+  const parts = [{ text: args.apiPrompt || composePrompt(args.prompt, args.promptConfig) }];
   for (const input of args.inputs) {
     const filePath = resolve(args.cwd, input);
     parts.push({
@@ -496,7 +665,7 @@ async function generateOpenAI(args) {
   if (args.inputs.length > 0) {
     const form = new FormData();
     form.append("model", args.model);
-    form.append("prompt", args.prompt);
+    form.append("prompt", args.apiPrompt || composePrompt(args.prompt, args.promptConfig));
     if (args.size) form.append("size", args.size);
     if (args.quality) form.append("quality", args.quality);
     if (args.format) form.append("output_format", args.format);
@@ -638,11 +807,12 @@ Usage:
   open-image --provider gemini --input ./reference.png --prompt "Restyle this image"
 
 Options:
-  --provider openai|gemini       Provider to call. Default: OPEN_IMAGE_PROVIDER or openai.
+  --provider openai|gemini       Provider to call. Default: config defaultProvider, OPEN_IMAGE_PROVIDER, or openai.
   --prompt, -p TEXT              Image prompt.
+  --config FILE                  Setup config file. Default: ./open-image.config.json.
   --input, -i FILE               Reference image. Repeat for multiple images.
   --mask FILE                    OpenAI edit mask.
-  --out, -o DIR                  Output directory. Default: OPEN_IMAGE_OUTPUT_DIR or ./open-image-output.
+  --out, -o DIR                  Output directory. Default: config outputDir, OPEN_IMAGE_OUTPUT_DIR, or ./open-image-output.
   --model MODEL                  Override provider model.
   --size SIZE                    OpenAI image size. Default: auto.
   --quality VALUE                OpenAI quality: auto, low, medium, high.
@@ -660,6 +830,8 @@ export async function run(rawArgs = []) {
   if (args.help) return { text: helpText() };
   const loadedEnvFiles = loadEnv(args);
   if (args.setup) return setupCommand(args, loadedEnvFiles);
+  const loadedConfig = loadConfig(args);
+  applyConfigDefaults(args, loadedConfig.config);
   validateArgs(args, !args.dryRun);
 
   const endpoint = args.provider === "openai"
@@ -673,9 +845,11 @@ export async function run(rawArgs = []) {
       model: args.model,
       endpoint,
       prompt: args.prompt,
+      apiPrompt: args.apiPrompt,
       inputs: args.inputs,
       outputDir: resolve(args.cwd, args.outputDir),
       loadedEnvFiles,
+      configFile: loadedConfig.path,
     };
   }
 
@@ -691,6 +865,7 @@ export async function run(rawArgs = []) {
   return {
     provider: args.provider,
     model: args.model,
+    configFile: loadedConfig.path,
     files: allFiles,
     responseText,
   };

@@ -18,4 +18,4 @@ Run `open-image` with the selected provider and image path:
 open-image --provider <provider> --input <image-path> --prompt "<prompt>"
 ```
 
-If the provider is missing, use `OPEN_IMAGE_PROVIDER` from `.env`, otherwise use OpenAI. Do not fall back to another provider after an error.
+If the provider is missing, use `open-image.config.json` defaultProvider, otherwise use OpenAI. Do not fall back to another provider after an error.

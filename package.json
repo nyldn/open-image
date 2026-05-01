@@ -37,10 +37,10 @@
     "scripts/",
     "skills/",
     "src/",
+    "templates/",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
     ".env.example"
   ]
 }
-

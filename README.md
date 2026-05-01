@@ -17,6 +17,8 @@ open-image setup
 
 Then add `OPENAI_API_KEY` to the created `.env.local`. Add `GEMINI_API_KEY` only if you want Gemini too.
 
+Use `open-image.config.json` for model defaults, output defaults, pre-prompts, and negative prompts. See [`docs/setup-file.md`](docs/setup-file.md).
+
 ## Natural Language
 
 ```bash

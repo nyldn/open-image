@@ -13,6 +13,8 @@ Use this skill when the user wants image generation or image editing through the
 - Read provider credentials from the user's environment or project `.env`.
 - Use `OPENAI_API_KEY` for OpenAI.
 - Use `GEMINI_API_KEY` for Gemini.
+- Load `open-image.config.json` for provider/model defaults and prompt defaults.
+- Include configured pre-prompts and negative prompts with every provider API prompt.
 - Do not fall back from one provider to the other after a failure.
 - Save generated files to `OPEN_IMAGE_OUTPUT_DIR` or `./open-image-output`.
 

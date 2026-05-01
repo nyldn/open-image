@@ -6,10 +6,13 @@ import { join } from "node:path";
 import {
   GEMINI_DEFAULT_MODEL,
   OPENAI_DEFAULT_MODEL,
+  applyConfigDefaults,
   apiErrorFromResponse,
   buildGeminiBody,
   buildOpenAIJsonBody,
+  composePrompt,
   formatErrorForCli,
+  loadConfig,
   loadEnv,
   parseArgs,
   run,
@@ -92,6 +95,56 @@ test("loadEnv reads project .env without overriding process env", () => {
   assert.equal(loaded.length, 1);
 });
 
+test("loadConfig applies provider defaults and prompt composition", async () => {
+  const cwd = mkdtempSync(join(tmpdir(), "open-image-config-"));
+  writeFileSync(join(cwd, "open-image.config.json"), JSON.stringify({
+    defaultProvider: "gemini",
+    outputDir: "./configured-output",
+    prompt: {
+      prePrompts: ["Use premium editorial lighting."],
+      negativePrompts: ["watermarks", "text overlays"],
+    },
+    gemini: {
+      model: GEMINI_DEFAULT_MODEL,
+      aspect: "16:9",
+      imageSize: "2K",
+    },
+  }, null, 2));
+
+  const result = await run(["--dry-run", "--cwd", cwd, "generate", "a", "mountain", "landscape"]);
+  assert.equal(result.provider, "gemini");
+  assert.equal(result.model, GEMINI_DEFAULT_MODEL);
+  assert.equal(result.outputDir, join(cwd, "configured-output"));
+  assert.match(result.apiPrompt, /Use premium editorial lighting/);
+  assert.match(result.apiPrompt, /User prompt:\ngenerate a mountain landscape/);
+  assert.match(result.apiPrompt, /Negative prompt - avoid:\nwatermarks\ntext overlays/);
+});
+
+test("explicit CLI provider overrides config default provider", () => {
+  const args = parseArgs(["--provider", "openai", "--prompt", "A clean app icon"]);
+  applyConfigDefaults(args, {
+    defaultProvider: "gemini",
+    openai: { model: OPENAI_DEFAULT_MODEL, quality: "high" },
+    gemini: { model: GEMINI_DEFAULT_MODEL, imageSize: "2K" },
+  });
+  assert.equal(args.provider, "openai");
+  assert.equal(args.model, OPENAI_DEFAULT_MODEL);
+  assert.equal(args.quality, "high");
+});
+
+test("composePrompt leaves plain prompts unchanged without prompt defaults", () => {
+  assert.equal(composePrompt("A clean app icon"), "A clean app icon");
+});
+
+test("loadConfig reads open-image.config.json from cwd", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "open-image-load-config-"));
+  const configPath = join(cwd, "open-image.config.json");
+  writeFileSync(configPath, JSON.stringify({ defaultProvider: "openai" }));
+  const loaded = loadConfig(parseArgs(["--cwd", cwd, "A", "prompt"]));
+  assert.equal(loaded.path, configPath);
+  assert.equal(loaded.config.defaultProvider, "openai");
+});
+
 test("validateArgs allows dry-run without API keys", () => {
   const args = parseArgs(["--provider", "openai", "--prompt", "A clean app icon"]);
   assert.doesNotThrow(() => validateArgs(args, false));
@@ -148,11 +201,15 @@ test("setup creates a local env template without requiring API keys", async () =
   const cwd = mkdtempSync(join(tmpdir(), "open-image-setup-"));
   const result = await run(["setup", "--cwd", cwd]);
   const envPath = join(cwd, ".env.local");
+  const configPath = join(cwd, "open-image.config.json");
   assert.equal(result.setup, true);
   assert.equal(result.defaultProvider, "openai");
   assert.equal(result.envFile, envPath);
   assert.equal(result.envFileCreated, true);
+  assert.equal(result.configFile, configPath);
+  assert.equal(result.configFileCreated, true);
   assert.equal(result.keys.openai, "missing");
   assert.equal(existsSync(envPath), true);
-  assert.match(readFileSync(envPath, "utf8"), /OPEN_IMAGE_PROVIDER=openai/);
+  assert.equal(existsSync(configPath), true);
+  assert.match(readFileSync(configPath, "utf8"), /"prePrompts"/);
 });
