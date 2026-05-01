@@ -1,5 +1,5 @@
 {
-  "name": "open-image",
+  "name": "img",
   "version": "0.1.0",
   "description": "Generate and edit images with OpenAI GPT Image 2 and Gemini 3.1 Flash Image Preview. No provider fallback.",
   "author": {
@@ -7,8 +7,8 @@
     "url": "https://github.com/nyldn"
   },
   "license": "MIT",
-  "repository": "https://github.com/nyldn/open-image",
-  "homepage": "https://github.com/nyldn/open-image",
+  "repository": "https://github.com/nyldn/img",
+  "homepage": "https://github.com/nyldn/img",
   "keywords": [
     "image-generation",
     "gpt-image-2",

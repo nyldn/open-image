@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="nyldn/open-image"
-PLUGIN_NAME="open-image"
-CHECKOUT_ROOT="$HOME/.codex/plugins/open-image-repo"
+REPO="nyldn/img"
+PLUGIN_NAME="img"
+CHECKOUT_ROOT="$HOME/.codex/plugins/img-repo"
 MARKETPLACE_FILE="$HOME/.agents/plugins/marketplace.json"
 PLUGIN_ROOT=""
 
@@ -43,10 +43,10 @@ ensure_checkout() {
   require_cmd git
   mkdir -p "$(dirname "$CHECKOUT_ROOT")"
   if [ -d "$CHECKOUT_ROOT/.git" ]; then
-    echo "Updating Open Image checkout at $CHECKOUT_ROOT..."
+    echo "Updating img checkout at $CHECKOUT_ROOT..."
     git -C "$CHECKOUT_ROOT" pull --quiet 2>/dev/null || true
   else
-    echo "Cloning Open Image to $CHECKOUT_ROOT..."
+    echo "Cloning img to $CHECKOUT_ROOT..."
     gh auth status >/dev/null 2>&1 || fail "GitHub CLI is not authenticated. Run: gh auth login"
     gh repo clone "$REPO" "$CHECKOUT_ROOT" -- --quiet
   fi

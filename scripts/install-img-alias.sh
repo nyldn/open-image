@@ -2,22 +2,22 @@
 set -euo pipefail
 
 TARGET_DIR="$HOME/.claude/commands"
-TARGET="$TARGET_DIR/open-image.md"
+TARGET="$TARGET_DIR/img.md"
 
 mkdir -p "$TARGET_DIR"
 cat > "$TARGET" <<'EOF'
 ---
-description: Generate an image with the Open Image CLI.
+description: Generate an image with the img CLI.
 argument-hint: "[natural language image request]"
-allowed-tools: "Bash(open-image:*)"
+allowed-tools: "Bash(img:*)"
 ---
 
-# Open Image
+# img
 
-If the user runs `/open-image setup`, run the setup workflow:
+If the user runs `/img setup`, run the setup workflow:
 
 ```bash
-open-image setup
+img setup
 ```
 
 Otherwise, generate an image from the user's natural language request:
@@ -31,11 +31,11 @@ Default to OpenAI `gpt-image-2`. Preserve aspect, style, size, and subject words
 Run:
 
 ```bash
-open-image --provider openai --prompt "$ARGUMENTS"
+img --provider openai --prompt "$ARGUMENTS"
 ```
 
-Report the saved file path and provider. Do not retry with a different provider if the command fails. If setup is missing, tell the user to run /open-image setup.
+Report the saved file path and provider. Do not retry with a different provider if the command fails. If setup is missing, tell the user to run /img setup.
 EOF
 
 echo "Installed user command alias: $TARGET"
-echo "Restart Claude Code, then use /open-image."
+echo "Restart Claude Code, then use /img."

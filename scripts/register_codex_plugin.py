@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Register Open Image as a local Codex plugin."""
+"""Register img as a local Codex plugin."""
 
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def ensure_personal_plugin_root(plugin_root: Path, plugin_name: str, home_root: 
 
 def load_marketplace(marketplace_path: Path) -> dict:
     if not marketplace_path.exists():
-        return {"name": "open-image-plugins", "plugins": []}
+        return {"name": "img-plugins", "plugins": []}
 
     try:
         with marketplace_path.open(encoding="utf-8") as handle:
@@ -74,7 +74,7 @@ def load_marketplace(marketplace_path: Path) -> dict:
     if not isinstance(data.get("plugins"), list):
         data["plugins"] = []
     if not isinstance(data.get("name"), str) or not data["name"]:
-        data["name"] = "open-image-plugins"
+        data["name"] = "img-plugins"
     return data
 
 
@@ -142,4 +142,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

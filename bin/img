@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { main } from "../src/open-image.mjs";
+import { main } from "../src/img.mjs";
 
 await main(process.argv.slice(2));
-

@@ -17,7 +17,7 @@ import {
   parseArgs,
   run,
   validateArgs,
-} from "../src/open-image.mjs";
+} from "../src/img.mjs";
 
 test("parseArgs defaults to OpenAI GPT Image 2", () => {
   const args = parseArgs(["--prompt", "A clean app icon"]);
@@ -61,7 +61,7 @@ test("OpenAI body uses image generation parameters", () => {
 });
 
 test("Gemini body includes image config and inline input data", () => {
-  const cwd = mkdtempSync(join(tmpdir(), "open-image-"));
+  const cwd = mkdtempSync(join(tmpdir(), "img-"));
   const inputPath = join(cwd, "reference.png");
   writeFileSync(inputPath, Buffer.from("png"));
   const args = parseArgs([
@@ -86,18 +86,18 @@ test("Gemini body includes image config and inline input data", () => {
 });
 
 test("loadEnv reads project .env without overriding process env", () => {
-  const cwd = mkdtempSync(join(tmpdir(), "open-image-env-"));
-  writeFileSync(join(cwd, ".env"), "OPEN_IMAGE_TEST_KEY=from-file\n");
-  delete process.env.OPEN_IMAGE_TEST_KEY;
+  const cwd = mkdtempSync(join(tmpdir(), "img-env-"));
+  writeFileSync(join(cwd, ".env"), "IMG_TEST_KEY=from-file\n");
+  delete process.env.IMG_TEST_KEY;
   const args = parseArgs(["--prompt", "x", "--cwd", cwd]);
   const loaded = loadEnv(args, cwd);
-  assert.equal(process.env.OPEN_IMAGE_TEST_KEY, "from-file");
+  assert.equal(process.env.IMG_TEST_KEY, "from-file");
   assert.equal(loaded.length, 1);
 });
 
 test("loadConfig applies provider defaults and prompt composition", async () => {
-  const cwd = mkdtempSync(join(tmpdir(), "open-image-config-"));
-  writeFileSync(join(cwd, "open-image.config.json"), JSON.stringify({
+  const cwd = mkdtempSync(join(tmpdir(), "img-config-"));
+  writeFileSync(join(cwd, "img.config.json"), JSON.stringify({
     defaultProvider: "gemini",
     outputDir: "./configured-output",
     prompt: {
@@ -136,9 +136,9 @@ test("composePrompt leaves plain prompts unchanged without prompt defaults", () 
   assert.equal(composePrompt("A clean app icon"), "A clean app icon");
 });
 
-test("loadConfig reads open-image.config.json from cwd", () => {
-  const cwd = mkdtempSync(join(tmpdir(), "open-image-load-config-"));
-  const configPath = join(cwd, "open-image.config.json");
+test("loadConfig reads img.config.json from cwd", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "img-load-config-"));
+  const configPath = join(cwd, "img.config.json");
   writeFileSync(configPath, JSON.stringify({ defaultProvider: "openai" }));
   const loaded = loadConfig(parseArgs(["--cwd", cwd, "A", "prompt"]));
   assert.equal(loaded.path, configPath);
@@ -198,10 +198,10 @@ test("run dry-run returns provider metadata", async () => {
 });
 
 test("setup creates a local env template without requiring API keys", async () => {
-  const cwd = mkdtempSync(join(tmpdir(), "open-image-setup-"));
+  const cwd = mkdtempSync(join(tmpdir(), "img-setup-"));
   const result = await run(["setup", "--cwd", cwd]);
   const envPath = join(cwd, ".env.local");
-  const configPath = join(cwd, "open-image.config.json");
+  const configPath = join(cwd, "img.config.json");
   assert.equal(result.setup, true);
   assert.equal(result.defaultProvider, "openai");
   assert.equal(result.envFile, envPath);

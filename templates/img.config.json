@@ -1,6 +1,6 @@
 {
   "defaultProvider": "openai",
-  "outputDir": "./open-image-output",
+  "outputDir": "./img-output",
   "openAfterGeneration": false,
   "count": 1,
   "prompt": {

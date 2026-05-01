@@ -1,22 +1,22 @@
 ---
-name: open-image
-description: Generate or edit images with OpenAI gpt-image-2 or Google gemini-3.1-flash-image-preview using API keys from .env. Use when a user asks to create, restyle, or edit an image through Open Image.
+name: img
+description: Generate or edit images with OpenAI gpt-image-2 or Google gemini-3.1-flash-image-preview using API keys from .env. Use when a user asks to create, restyle, or edit an image through img.
 ---
 
-# Open Image
+# img
 
-Use this skill when the user wants image generation or image editing through the Open Image plugin.
+Use this skill when the user wants image generation or image editing through the img plugin.
 
 ## Runtime Contract
 
-- Use `open-image` from the plugin `bin/` directory.
+- Use `img` from the plugin `bin/` directory.
 - Read provider credentials from the user's environment or project `.env`.
 - Use `OPENAI_API_KEY` for OpenAI.
 - Use `GEMINI_API_KEY` for Gemini.
-- Load `open-image.config.json` for provider/model defaults and prompt defaults.
+- Load `img.config.json` for provider/model defaults and prompt defaults.
 - Include configured pre-prompts and negative prompts with every provider API prompt.
 - Do not fall back from one provider to the other after a failure.
-- Save generated files to `OPEN_IMAGE_OUTPUT_DIR` or `./open-image-output`.
+- Save generated files to `IMG_OUTPUT_DIR` or `./img-output`.
 
 ## Provider Defaults
 
@@ -28,26 +28,26 @@ Use this skill when the user wants image generation or image editing through the
 Set up local environment:
 
 ```bash
-open-image setup
+img setup
 ```
 
 Generate with OpenAI:
 
 ```bash
-open-image --provider openai --prompt "$ARGUMENTS"
+img --provider openai --prompt "$ARGUMENTS"
 ```
 
 Generate with Gemini:
 
 ```bash
-open-image --provider gemini --prompt "$ARGUMENTS"
+img --provider gemini --prompt "$ARGUMENTS"
 ```
 
 Edit with a reference image:
 
 ```bash
-open-image --provider gemini --input ./reference.png --prompt "$ARGUMENTS"
-open-image --provider openai --input ./reference.png --prompt "$ARGUMENTS"
+img --provider gemini --input ./reference.png --prompt "$ARGUMENTS"
+img --provider openai --input ./reference.png --prompt "$ARGUMENTS"
 ```
 
 Use `--dry-run` before a costly or uncertain request to validate options without calling either API.

@@ -29,4 +29,4 @@ Useful options:
 
 ## No Fallback
 
-Open Image does not fail over from one provider to the other. This is intentional so image provenance, cost, and provider-specific errors stay explicit.
+img does not fail over from one provider to the other. This is intentional so image provenance, cost, and provider-specific errors stay explicit.

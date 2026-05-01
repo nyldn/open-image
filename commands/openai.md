@@ -1,7 +1,7 @@
 ---
 description: Generate an image with OpenAI gpt-image-2.
 argument-hint: "[prompt]"
-allowed-tools: "Bash(open-image:*)"
+allowed-tools: "Bash(img:*)"
 ---
 
 # OpenAI Image Generation
@@ -15,7 +15,7 @@ $ARGUMENTS
 Run:
 
 ```bash
-open-image --provider openai --prompt "$ARGUMENTS"
+img --provider openai --prompt "$ARGUMENTS"
 ```
 
 Report the saved file path. Do not fall back to Gemini if OpenAI fails.

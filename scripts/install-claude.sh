@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MARKETPLACE="nyldn/open-image"
-PLUGIN="open-image@open-image-marketplace"
+MARKETPLACE="nyldn/img"
+PLUGIN="img@img-marketplace"
 SCOPE="user"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -30,8 +30,8 @@ claude plugin marketplace add "$MARKETPLACE" --scope "$SCOPE" || true
 echo "Installing $PLUGIN..."
 claude plugin install "$PLUGIN" --scope "$SCOPE"
 
-echo "Installing bare /open-image command alias..."
-"$SCRIPT_DIR/install-open-image-alias.sh"
+echo "Installing bare /img command alias..."
+"$SCRIPT_DIR/install-img-alias.sh"
 
 info "Installed $PLUGIN"
-echo "Restart Claude Code, then use /open-image."
+echo "Restart Claude Code, then use /img."

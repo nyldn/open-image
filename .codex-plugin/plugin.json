@@ -1,10 +1,10 @@
 {
-  "name": "open-image",
+  "name": "img",
   "version": "0.1.0",
   "description": "Generate and edit images with OpenAI GPT Image 2 and Gemini 3.1 Flash Image Preview. No provider fallback.",
   "skills": "./skills/",
   "interface": {
-    "displayName": "Open Image",
+    "displayName": "img",
     "shortDescription": "Generate images from Codex with OpenAI or Gemini.",
     "longDescription": "Portable image-generation skills and a local CLI for OpenAI GPT Image 2 and Gemini 3.1 Flash Image Preview.",
     "developerName": "nyldn",

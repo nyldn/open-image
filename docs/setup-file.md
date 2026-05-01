@@ -1,18 +1,18 @@
 # Setup File
 
-`open-image setup` creates two local files in the current project:
+`img setup` creates two local files in the current project:
 
 - `.env.local` for API keys
-- `open-image.config.json` for non-secret defaults
+- `img.config.json` for non-secret defaults
 
-Do not put API keys in `open-image.config.json`.
+Do not put API keys in `img.config.json`.
 
 ## Template
 
 ```json
 {
   "defaultProvider": "openai",
-  "outputDir": "./open-image-output",
+  "outputDir": "./img-output",
   "openAfterGeneration": false,
   "count": 1,
   "prompt": {
@@ -62,8 +62,8 @@ Example:
 When the user runs:
 
 ```bash
-open-image generate a photorealistic 2:1 image of a dog
+img generate a photorealistic 2:1 image of a dog
 ```
 
-Open Image sends a composed prompt containing the pre-prompts, the user's prompt, and the negative prompts. The saved filename still uses the user's original prompt.
+img sends a composed prompt containing the pre-prompts, the user's prompt, and the negative prompts. The saved filename still uses the user's original prompt.
 

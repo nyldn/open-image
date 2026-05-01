@@ -19,20 +19,20 @@ const codexManifest = readJson(".codex-plugin/plugin.json");
 
 assert(packageJson.version === claudeManifest.version, "package.json and Claude manifest versions differ");
 assert(packageJson.version === codexManifest.version, "package.json and Codex manifest versions differ");
-assert(claudeManifest.name === "open-image", "Claude manifest name must be open-image");
-assert(codexManifest.name === "open-image", "Codex manifest name must be open-image");
+assert(claudeManifest.name === "img", "Claude manifest name must be img");
+assert(codexManifest.name === "img", "Codex manifest name must be img");
 
 const requiredFiles = [
-  "bin/open-image",
-  "src/open-image.mjs",
-  "commands/open-image.md",
+  "bin/img",
+  "src/img.mjs",
+  "commands/img.md",
   "commands/openai.md",
   "commands/gemini.md",
   "commands/edit.md",
   "commands/setup.md",
   "docs/setup-file.md",
-  "skills/open-image/SKILL.md",
-  "templates/open-image.config.json",
+  "skills/img/SKILL.md",
+  "templates/img.config.json",
   ".env.example",
   "README.md",
   "CHANGELOG.md",
@@ -43,18 +43,18 @@ for (const file of requiredFiles) {
   assert(existsSync(join(root, file)), `Missing required file: ${file}`);
 }
 
-for (const command of ["commands/open-image.md", "commands/openai.md", "commands/gemini.md", "commands/edit.md", "commands/setup.md"]) {
+for (const command of ["commands/img.md", "commands/openai.md", "commands/gemini.md", "commands/edit.md", "commands/setup.md"]) {
   const content = readFileSync(join(root, command), "utf8");
   const match = content.match(/^---\n([\s\S]*?)\n---/);
   assert(match, `${command} is missing YAML frontmatter`);
-  assert(match[1].includes('allowed-tools: "Bash(open-image:*)"'), `${command} must quote allowed-tools`);
+  assert(match[1].includes('allowed-tools: "Bash(img:*)"'), `${command} must quote allowed-tools`);
 }
 
-const skill = readFileSync(join(root, "skills/open-image/SKILL.md"), "utf8");
+const skill = readFileSync(join(root, "skills/img/SKILL.md"), "utf8");
 assert(skill.includes("gpt-image-2"), "Skill must mention gpt-image-2");
 assert(skill.includes("gemini-3.1-flash-image-preview"), "Skill must mention Gemini model");
 
-const configTemplate = readJson("templates/open-image.config.json");
+const configTemplate = readJson("templates/img.config.json");
 assert(configTemplate.defaultProvider === "openai", "Config template defaultProvider must be openai");
 assert(Array.isArray(configTemplate.prompt.prePrompts), "Config template must include prompt.prePrompts");
 assert(Array.isArray(configTemplate.prompt.negativePrompts), "Config template must include prompt.negativePrompts");

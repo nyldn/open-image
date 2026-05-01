@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 export const OPENAI_DEFAULT_MODEL = "gpt-image-2";
 export const GEMINI_DEFAULT_MODEL = "gemini-3.1-flash-image-preview";
-export const DEFAULT_CONFIG_FILENAME = "open-image.config.json";
+export const DEFAULT_CONFIG_FILENAME = "img.config.json";
 
 const PROVIDERS = new Set(["openai", "gemini"]);
 const OPENAI_FORMATS = new Set(["png", "jpeg", "webp"]);
@@ -64,11 +64,11 @@ export function parseArgs(argv = []) {
     _explicit: new Set(),
     setup: false,
     configFile: "",
-    provider: process.env.OPEN_IMAGE_PROVIDER || "openai",
+    provider: process.env.IMG_PROVIDER || "openai",
     prompt: "",
     inputs: [],
     mask: "",
-    outputDir: process.env.OPEN_IMAGE_OUTPUT_DIR || "./open-image-output",
+    outputDir: process.env.IMG_OUTPUT_DIR || "./img-output",
     filename: "",
     model: "",
     size: "auto",
@@ -219,7 +219,7 @@ function safeReadJson(filePath) {
   try {
     return JSON.parse(readFileSync(filePath, "utf8"));
   } catch (error) {
-    throw new Error(`Invalid Open Image config JSON at ${filePath}: ${error.message}`);
+    throw new Error(`Invalid img config JSON at ${filePath}: ${error.message}`);
   }
 }
 
@@ -229,7 +229,7 @@ export function loadConfig(args, root = pluginRoot()) {
     candidates.push(resolve(args.cwd, args.configFile));
   } else {
     candidates.push(resolve(args.cwd, DEFAULT_CONFIG_FILENAME));
-    candidates.push(resolve(args.cwd, ".open-image.json"));
+    candidates.push(resolve(args.cwd, ".img.json"));
     candidates.push(resolve(root, DEFAULT_CONFIG_FILENAME));
   }
 
@@ -439,7 +439,7 @@ function writeSetupEnvFile(envPath) {
 function defaultConfigTemplate() {
   return {
     defaultProvider: "openai",
-    outputDir: "./open-image-output",
+    outputDir: "./img-output",
     openAfterGeneration: false,
     count: 1,
     prompt: {
@@ -483,7 +483,7 @@ function setupCommand(args, loadedEnvFiles) {
   const created = writeSetupEnvFile(envPath);
   const configCreated = writeSetupConfigFile(configPath);
   const loadedConfig = loadConfig({ ...args, configFile: configPath });
-  const defaultProvider = loadedConfig.config.defaultProvider || process.env.OPEN_IMAGE_PROVIDER || "openai";
+  const defaultProvider = loadedConfig.config.defaultProvider || process.env.IMG_PROVIDER || "openai";
   return {
     setup: true,
     envFile: envPath,
@@ -497,10 +497,10 @@ function setupCommand(args, loadedEnvFiles) {
     },
     loadedEnvFiles,
     nextSteps: [
-      "Add OPENAI_API_KEY to the env file for the default /open-image path.",
+      "Add OPENAI_API_KEY to the env file for the default /img path.",
       "Add GEMINI_API_KEY only if you want Gemini image generation too.",
-      "Edit open-image.config.json to change provider/model defaults, pre-prompts, or negative prompts.",
-      "Run: open-image generate a photorealistic 2:1 image of a dog",
+      "Edit img.config.json to change provider/model defaults, pre-prompts, or negative prompts.",
+      "Run: img generate a photorealistic 2:1 image of a dog",
     ],
   };
 }
@@ -588,7 +588,7 @@ function hintForApiError(provider, response, parsed, args) {
     return "Run --dry-run to inspect the selected endpoint and options, then check size, quality, format, mask, and input image parameters.";
   }
   if (response?.status >= 500) {
-    return "The provider returned a server error. Retry later with the same provider; Open Image will not switch providers automatically.";
+    return "The provider returned a server error. Retry later with the same provider; img will not switch providers automatically.";
   }
   return undefined;
 }
@@ -797,22 +797,22 @@ function openFiles(files) {
 }
 
 export function helpText() {
-  return `Open Image
+  return `img
 
 Usage:
-  open-image setup
-  open-image generate a photorealistic 2:1 image of a dog
-  open-image --provider openai --prompt "A clean app icon"
-  open-image --provider gemini --prompt "A clean app icon" --aspect 1:1 --image-size 1K
-  open-image --provider gemini --input ./reference.png --prompt "Restyle this image"
+  img setup
+  img generate a photorealistic 2:1 image of a dog
+  img --provider openai --prompt "A clean app icon"
+  img --provider gemini --prompt "A clean app icon" --aspect 1:1 --image-size 1K
+  img --provider gemini --input ./reference.png --prompt "Restyle this image"
 
 Options:
-  --provider openai|gemini       Provider to call. Default: config defaultProvider, OPEN_IMAGE_PROVIDER, or openai.
+  --provider openai|gemini       Provider to call. Default: config defaultProvider, IMG_PROVIDER, or openai.
   --prompt, -p TEXT              Image prompt.
-  --config FILE                  Setup config file. Default: ./open-image.config.json.
+  --config FILE                  Setup config file. Default: ./img.config.json.
   --input, -i FILE               Reference image. Repeat for multiple images.
   --mask FILE                    OpenAI edit mask.
-  --out, -o DIR                  Output directory. Default: config outputDir, OPEN_IMAGE_OUTPUT_DIR, or ./open-image-output.
+  --out, -o DIR                  Output directory. Default: config outputDir, IMG_OUTPUT_DIR, or ./img-output.
   --model MODEL                  Override provider model.
   --size SIZE                    OpenAI image size. Default: auto.
   --quality VALUE                OpenAI quality: auto, low, medium, high.

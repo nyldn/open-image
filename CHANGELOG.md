@@ -2,9 +2,9 @@
 
 ## 0.1.0 - 2026-05-01
 
-- Initial Open Image plugin scaffold.
+- Initial img plugin scaffold.
 - Added Claude plugin manifest, commands, and skill.
 - Added Codex plugin manifest and installer.
 - Added provider CLI for OpenAI `gpt-image-2` and Google `gemini-3.1-flash-image-preview`.
 - Added tests, validation script, and GitHub Actions CI.
-- Added `open-image.config.json` setup template for model defaults, pre-prompts, and negative prompts.
+- Added `img.config.json` setup template for model defaults, pre-prompts, and negative prompts.
