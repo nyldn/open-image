@@ -1,7 +1,7 @@
 ---
 description: Edit or restyle an image with Open Image.
-argument-hint: [provider=openai|gemini] [image-path] [prompt]
-allowed-tools: Bash(open-image:*)
+argument-hint: "[provider=openai|gemini] [image-path] [prompt]"
+allowed-tools: "Bash(open-image:*)"
 ---
 
 # Open Image Edit
@@ -19,4 +19,3 @@ open-image --provider <provider> --input <image-path> --prompt "<prompt>"
 ```
 
 If the provider is missing, use `OPEN_IMAGE_PROVIDER` from `.env`, otherwise use OpenAI. Do not fall back to another provider after an error.
-

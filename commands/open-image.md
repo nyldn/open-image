@@ -1,7 +1,7 @@
 ---
 description: Generate an image with Open Image using the configured provider.
-argument-hint: [prompt]
-allowed-tools: Bash(open-image:*)
+argument-hint: "[prompt]"
+allowed-tools: "Bash(open-image:*)"
 ---
 
 # Open Image
@@ -19,4 +19,3 @@ open-image --prompt "$ARGUMENTS"
 ```
 
 Report the saved file path and provider. Do not retry with a different provider if the command fails.
-
