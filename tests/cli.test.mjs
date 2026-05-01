@@ -6,8 +6,10 @@ import { join } from "node:path";
 import {
   GEMINI_DEFAULT_MODEL,
   OPENAI_DEFAULT_MODEL,
+  apiErrorFromResponse,
   buildGeminiBody,
   buildOpenAIJsonBody,
+  formatErrorForCli,
   loadEnv,
   parseArgs,
   run,
@@ -88,10 +90,49 @@ test("validateArgs allows dry-run without API keys", () => {
   assert.doesNotThrow(() => validateArgs(args, false));
 });
 
+test("validateArgs rejects unsupported Gemini image sizes before calling the API", () => {
+  const args = parseArgs(["--provider", "gemini", "--prompt", "A clean app icon", "--image-size", "0.5K"]);
+  assert.throws(() => validateArgs(args, false), /Use 1K, 2K, or 4K/);
+});
+
+test("apiErrorFromResponse preserves provider status, request id, details, and hint", async () => {
+  const args = parseArgs(["--provider", "gemini", "--prompt", "A clean app icon", "--image-size", "1K"]);
+  const response = new Response(JSON.stringify({
+    error: {
+      code: 400,
+      status: "INVALID_ARGUMENT",
+      message: "Request contains an invalid argument.",
+      details: [
+        {
+          "@type": "type.googleapis.com/google.rpc.BadRequest",
+          fieldViolations: [
+            {
+              field: "generationConfig.imageConfig.imageSize",
+              description: "Unsupported value",
+            },
+          ],
+        },
+      ],
+    },
+  }), {
+    status: 400,
+    statusText: "Bad Request",
+    headers: { "x-goog-request-id": "gemini-request-123" },
+  });
+
+  const error = await apiErrorFromResponse(response, "Gemini", args);
+  const output = formatErrorForCli(error);
+  assert.equal(output.provider, "Gemini");
+  assert.equal(output.status, 400);
+  assert.equal(output.apiStatus, "INVALID_ARGUMENT");
+  assert.equal(output.requestId, "gemini-request-123");
+  assert.match(output.hint, /ImageConfig/);
+  assert.equal(output.details[0].fieldViolations[0].field, "generationConfig.imageConfig.imageSize");
+});
+
 test("run dry-run returns provider metadata", async () => {
   const result = await run(["--dry-run", "--provider", "gemini", "--prompt", "A clean app icon"]);
   assert.equal(result.dryRun, true);
   assert.equal(result.provider, "gemini");
   assert.equal(result.model, GEMINI_DEFAULT_MODEL);
 });
-

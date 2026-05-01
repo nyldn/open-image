@@ -24,10 +24,9 @@ Useful options:
 Useful options:
 
 - `--aspect 1:1|16:9|9:16|4:3|3:4|4:5|5:4|3:2|2:3|1:4|4:1|1:8|8:1|21:9`
-- `--image-size 0.5K|1K|2K|4K`
+- `--image-size 1K|2K|4K`
 - `--google-search` to request Gemini search grounding when supported
 
 ## No Fallback
 
 Open Image does not fail over from one provider to the other. This is intentional so image provenance, cost, and provider-specific errors stay explicit.
-

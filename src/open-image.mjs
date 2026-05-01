@@ -25,7 +25,23 @@ const GEMINI_ASPECTS = new Set([
   "8:1",
   "21:9",
 ]);
-const GEMINI_IMAGE_SIZES = new Set(["0.5K", "1K", "2K", "4K"]);
+const GEMINI_IMAGE_SIZES = new Set(["1K", "2K", "4K"]);
+
+export class ProviderApiError extends Error {
+  constructor({ provider, status, statusText, code, apiStatus, requestId, message, details, hint, bodyExcerpt }) {
+    super(message);
+    this.name = "ProviderApiError";
+    this.provider = provider;
+    this.status = status;
+    this.statusText = statusText;
+    this.code = code;
+    this.apiStatus = apiStatus;
+    this.requestId = requestId;
+    this.details = details;
+    this.hint = hint;
+    this.bodyExcerpt = bodyExcerpt;
+  }
+}
 
 function pluginRoot() {
   return resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -266,7 +282,7 @@ export function validateArgs(args, requireKeys = true) {
   }
   if (args.provider === "gemini") {
     if (!GEMINI_ASPECTS.has(args.aspect)) throw new Error(`Unsupported Gemini aspect ratio: ${args.aspect}`);
-    if (!GEMINI_IMAGE_SIZES.has(args.imageSize)) throw new Error(`Unsupported Gemini image size: ${args.imageSize}`);
+    if (!GEMINI_IMAGE_SIZES.has(args.imageSize)) throw new Error(`Unsupported Gemini image size: ${args.imageSize}. Use 1K, 2K, or 4K.`);
     if (args.mask) throw new Error("--mask is only supported with --provider openai");
     if (requireKeys && !process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required for --provider gemini");
   }
@@ -311,15 +327,112 @@ export function buildGeminiBody(args) {
   return body;
 }
 
-async function parseErrorResponse(response, provider) {
+function firstHeader(headers, names) {
+  for (const name of names) {
+    const value = headers.get(name);
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function compactDetails(details) {
+  if (!Array.isArray(details) || details.length === 0) return undefined;
+  return details.slice(0, 5).map((detail) => {
+    if (!detail || typeof detail !== "object") return detail;
+    const compact = {};
+    for (const key of ["@type", "reason", "domain", "metadata", "fieldViolations", "violations"]) {
+      if (detail[key] !== undefined) compact[key] = detail[key];
+    }
+    return Object.keys(compact).length > 0 ? compact : detail;
+  });
+}
+
+function hintForApiError(provider, response, parsed, args) {
+  const error = parsed?.error || parsed || {};
+  const code = error.code || response?.status;
+  const apiStatus = error.status || error.type || "";
+  const message = String(error.message || parsed?.message || "").toLowerCase();
+
+  if (response?.status === 401 || response?.status === 403) {
+    return provider === "OpenAI"
+      ? "Check OPENAI_API_KEY, project access, billing, and whether the organization is verified for GPT Image models."
+      : "Check GEMINI_API_KEY, API restrictions, billing, region availability, and access to the selected Gemini image model.";
+  }
+  if (response?.status === 429 || apiStatus === "RESOURCE_EXHAUSTED") {
+    return "The provider rate-limited the request. Retry later or lower concurrency.";
+  }
+  if (provider === "Gemini" && response?.status === 400) {
+    if (args?.imageSize === "0.5K" || message.includes("invalid argument")) {
+      return "Check Gemini ImageConfig values. The REST API reference currently supports --image-size 1K, 2K, or 4K.";
+    }
+    return "Run --dry-run to inspect the selected model and options, then check Gemini aspect ratio, image size, and input image MIME types.";
+  }
+  if (provider === "OpenAI" && response?.status === 400) {
+    return "Run --dry-run to inspect the selected endpoint and options, then check size, quality, format, mask, and input image parameters.";
+  }
+  if (response?.status >= 500) {
+    return "The provider returned a server error. Retry later with the same provider; Open Image will not switch providers automatically.";
+  }
+  return undefined;
+}
+
+function networkApiError(provider, error) {
+  return new ProviderApiError({
+    provider,
+    code: "NETWORK_ERROR",
+    message: `${provider} network error: ${error.message}`,
+    hint: "Check network connectivity, proxy settings, and provider service status.",
+  });
+}
+
+export async function apiErrorFromResponse(response, provider, args = {}) {
   const text = await response.text();
   try {
     const parsed = JSON.parse(text);
-    const message = parsed.error?.message || parsed.message || text;
-    return `${provider} API error ${response.status}: ${message}`;
+    const error = parsed.error || {};
+    const message = error.message || parsed.message || response.statusText || "API request failed";
+    return new ProviderApiError({
+      provider,
+      status: response.status,
+      statusText: response.statusText,
+      code: error.code || parsed.code,
+      apiStatus: error.status || error.type || parsed.status,
+      requestId: firstHeader(response.headers, ["x-request-id", "x-goog-request-id", "x-cloud-trace-context"]),
+      message: `${provider} API error ${response.status}: ${message}`,
+      details: compactDetails(error.details || parsed.details),
+      hint: hintForApiError(provider, response, parsed, args),
+      bodyExcerpt: text.slice(0, 1000),
+    });
   } catch {
-    return `${provider} API error ${response.status}: ${text.slice(0, 500)}`;
+    return new ProviderApiError({
+      provider,
+      status: response.status,
+      statusText: response.statusText,
+      requestId: firstHeader(response.headers, ["x-request-id", "x-goog-request-id", "x-cloud-trace-context"]),
+      message: `${provider} API error ${response.status}: ${text.slice(0, 500)}`,
+      hint: hintForApiError(provider, response, undefined, args),
+      bodyExcerpt: text.slice(0, 1000),
+    });
   }
+}
+
+export function formatErrorForCli(error) {
+  if (error instanceof ProviderApiError) {
+    const output = {
+      error: error.message,
+      provider: error.provider,
+    };
+    if (error.status !== undefined) output.status = error.status;
+    if (error.statusText) output.statusText = error.statusText;
+    if (error.code !== undefined) output.code = error.code;
+    if (error.apiStatus) output.apiStatus = error.apiStatus;
+    if (error.requestId) output.requestId = error.requestId;
+    if (error.hint) output.hint = error.hint;
+    if (error.details) output.details = error.details;
+    if (error.bodyExcerpt) output.bodyExcerpt = error.bodyExcerpt;
+    return output;
+  }
+  return { error: error.message };
 }
 
 async function blobForFile(filePath) {
@@ -348,51 +461,77 @@ async function generateOpenAI(args) {
       const maskPath = resolve(args.cwd, args.mask);
       form.append("mask", await blobForFile(maskPath), basename(maskPath));
     }
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: form,
-    });
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+        body: form,
+      });
+    } catch (error) {
+      throw networkApiError("OpenAI", error);
+    }
   } else {
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(buildOpenAIJsonBody(args)),
-    });
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(buildOpenAIJsonBody(args)),
+      });
+    } catch (error) {
+      throw networkApiError("OpenAI", error);
+    }
   }
 
-  if (!response.ok) throw new Error(await parseErrorResponse(response, "OpenAI"));
+  if (!response.ok) throw await apiErrorFromResponse(response, "OpenAI", args);
   const data = await response.json();
   const images = [];
   for (const item of data.data || []) {
     const base64 = item.b64_json || item.b64Json;
     if (base64) images.push({ base64, mimeType: `image/${args.format}` });
   }
-  if (images.length === 0) throw new Error("OpenAI response did not include base64 image data.");
+  if (images.length === 0) {
+    throw new ProviderApiError({
+      provider: "OpenAI",
+      code: "NO_IMAGE_DATA",
+      message: "OpenAI response did not include base64 image data.",
+      hint: "Check whether the selected OpenAI endpoint/model supports base64 image output for these parameters.",
+    });
+  }
   return { images, responseText: null };
 }
 
 async function generateGemini(args) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(args.model)}:generateContent`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "x-goog-api-key": process.env.GEMINI_API_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(buildGeminiBody(args)),
-  });
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": process.env.GEMINI_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildGeminiBody(args)),
+    });
+  } catch (error) {
+    throw networkApiError("Gemini", error);
+  }
 
-  if (!response.ok) throw new Error(await parseErrorResponse(response, "Gemini"));
+  if (!response.ok) throw await apiErrorFromResponse(response, "Gemini", args);
   const data = await response.json();
   const images = [];
   const text = [];
   for (const candidate of data.candidates || []) {
     if (candidate.finishReason === "SAFETY") {
-      throw new Error("Gemini blocked the request with finishReason SAFETY.");
+      throw new ProviderApiError({
+        provider: "Gemini",
+        code: "SAFETY_BLOCKED",
+        apiStatus: "SAFETY",
+        message: "Gemini blocked the request with finishReason SAFETY.",
+        hint: "Revise the prompt or input image to avoid content that violates Gemini safety policy.",
+      });
     }
     for (const part of candidate.content?.parts || []) {
       const inlineData = part.inlineData || part.inline_data;
@@ -407,7 +546,12 @@ async function generateGemini(args) {
     }
   }
   if (images.length === 0) {
-    throw new Error(`Gemini response did not include image data.${text.length ? ` Text response: ${text.join("\n").slice(0, 500)}` : ""}`);
+    throw new ProviderApiError({
+      provider: "Gemini",
+      code: "NO_IMAGE_DATA",
+      message: `Gemini response did not include image data.${text.length ? ` Text response: ${text.join("\n").slice(0, 500)}` : ""}`,
+      hint: "Check response modalities, prompt wording, model access, and whether the model returned text-only guidance instead of an image.",
+    });
   }
   return { images, responseText: text.join("\n").trim() || null };
 }
@@ -454,7 +598,7 @@ Options:
   --quality VALUE                OpenAI quality: auto, low, medium, high.
   --format VALUE                 OpenAI output format: png, jpeg, webp.
   --aspect RATIO                 Gemini aspect ratio. Default: 1:1.
-  --image-size VALUE             Gemini image size: 0.5K, 1K, 2K, 4K.
+  --image-size VALUE             Gemini image size: 1K, 2K, 4K.
   --count N                      Number of images to generate, 1-10.
   --open                         Open the first saved image with the OS viewer.
   --dry-run                      Validate and print request metadata without API calls.
@@ -510,7 +654,7 @@ export async function main(rawArgs = process.argv.slice(2)) {
       console.log(JSON.stringify(result, null, 2));
     }
   } catch (error) {
-    console.error(JSON.stringify({ error: error.message }, null, 2));
+    console.error(JSON.stringify(formatErrorForCli(error), null, 2));
     process.exitCode = 1;
   }
 }
