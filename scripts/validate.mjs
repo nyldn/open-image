@@ -36,6 +36,10 @@ const requiredFiles = [
   "docs/demo/img-demo.tape",
   "skills/img/SKILL.md",
   "templates/img.config.json",
+  "schemas/config.schema.json",
+  "schemas/plan.schema.json",
+  "schemas/manifest.schema.json",
+  "schemas/recipe.schema.json",
   ".env.example",
   "README.md",
   "CHANGELOG.md",
@@ -58,8 +62,13 @@ assert(skill.includes("gpt-image-2"), "Skill must mention gpt-image-2");
 assert(skill.includes("gemini-3.1-flash-image-preview"), "Skill must mention Gemini model");
 
 const configTemplate = readJson("templates/img.config.json");
+assert(configTemplate.schemaVersion === 1, "Config template schemaVersion must be 1");
 assert(configTemplate.defaultProvider === "openai", "Config template defaultProvider must be openai");
 assert(Array.isArray(configTemplate.prompt.prePrompts), "Config template must include prompt.prePrompts");
 assert(Array.isArray(configTemplate.prompt.negativePrompts), "Config template must include prompt.negativePrompts");
+assert(configTemplate.project && configTemplate.brand && configTemplate.assetTypes && configTemplate.destinations, "Config template must include project profile fields");
 
-console.log(JSON.stringify({ ok: true, checked: requiredFiles.length + 11 }, null, 2));
+const configSchema = readJson("schemas/config.schema.json");
+assert(configSchema.properties?.schemaVersion?.const === 1, "Config schema must target schemaVersion 1");
+
+console.log(JSON.stringify({ ok: true, checked: requiredFiles.length + 14 }, null, 2));

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nyldn/img/schemas/plan.schema.json",
+  "title": "img plan",
+  "type": "object",
+  "required": ["schemaVersion", "request", "generation", "assets"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "request": {
+      "type": "object"
+    },
+    "generation": {
+      "type": "object"
+    },
+    "assets": {
+      "type": "array"
+    }
+  },
+  "additionalProperties": true
+}

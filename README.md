@@ -38,11 +38,17 @@ Run setup first:
 
 ```bash
 img setup
+img check-health
 ```
 
-Then add `OPENAI_API_KEY` to the created `.env.local`. Add `GEMINI_API_KEY` only if you want Gemini too.
+Inside a git repo, setup prepares both user files and a project
+`img.config.json`. Outside a repo, it prepares user files only. You can force
+the scope with `img setup --user`, `img setup --project`, or `img setup --both`.
 
-Use `img.config.json` for model defaults, output defaults, pre-prompts, and negative prompts. See [`docs/setup-file.md`](docs/setup-file.md).
+Add `OPENAI_API_KEY` to `~/.config/img/.env.local`. Add `GEMINI_API_KEY` only
+if you want Gemini too. Use project `img.config.json` for shared model
+defaults, brand prompts, asset types, destinations, pre-prompts, and negative
+prompts. See [`docs/setup-file.md`](docs/setup-file.md).
 
 ## Natural Language
 

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nyldn/img/schemas/manifest.schema.json",
+  "title": "img manifest",
+  "type": "object",
+  "required": ["schemaVersion", "provider", "model", "files"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "provider": {
+      "enum": ["openai", "gemini"]
+    },
+    "model": {
+      "type": "string"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

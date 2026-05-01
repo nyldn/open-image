@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { accessSync, constants, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const OPENAI_DEFAULT_MODEL = "gpt-image-2";
@@ -59,10 +60,52 @@ function markExplicit(args, key) {
   args._explicit.add(key);
 }
 
+export function userConfigDir(env = process.env) {
+  if (env.IMG_CONFIG_HOME) return resolve(env.IMG_CONFIG_HOME);
+  if (env.XDG_CONFIG_HOME) return resolve(env.XDG_CONFIG_HOME, "img");
+  return resolve(env.HOME || homedir(), ".config", "img");
+}
+
+export function userConfigPath(env = process.env) {
+  return join(userConfigDir(env), "config.json");
+}
+
+export function userEnvPath(env = process.env) {
+  return join(userConfigDir(env), ".env.local");
+}
+
+export function findUpwardFile(startDir, filenames, stopDir = null) {
+  const names = Array.isArray(filenames) ? filenames : [filenames];
+  let dir = resolve(startDir);
+  const stop = stopDir ? resolve(stopDir) : null;
+  while (true) {
+    for (const name of names) {
+      const candidate = join(dir, name);
+      if (existsSync(candidate)) return candidate;
+    }
+    if (stop && dir === stop) return null;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+export function findProjectRoot(startDir) {
+  let dir = resolve(startDir);
+  while (true) {
+    if (existsSync(join(dir, ".git"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
 export function parseArgs(argv = []) {
   const args = {
     _explicit: new Set(),
     setup: false,
+    setupScope: "",
+    checkHealth: false,
     activate: false,
     configFile: "",
     provider: process.env.IMG_PROVIDER || "openai",
@@ -106,6 +149,24 @@ export function parseArgs(argv = []) {
       case "setup":
       case "--setup":
         args.setup = true;
+        break;
+      case "check-health":
+      case "doctor":
+      case "--check-health":
+        if (i === 0 || token === "--check-health") {
+          args.checkHealth = true;
+        } else {
+          positional.push(token);
+        }
+        break;
+      case "--user":
+        args.setupScope = "user";
+        break;
+      case "--project":
+        args.setupScope = "project";
+        break;
+      case "--both":
+        args.setupScope = "both";
         break;
       case "--provider":
         args.provider = readValue(argv, i, token);
@@ -236,24 +297,79 @@ function safeReadJson(filePath) {
   }
 }
 
+function uniqueStrings(values) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values) {
+    if (typeof value !== "string") {
+      result.push(value);
+      continue;
+    }
+    if (seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+  }
+  return result;
+}
+
+function shouldReplaceArray(override) {
+  return override && typeof override === "object" && override.mergeMode === "replace";
+}
+
+function mergeConfig(base = {}, override = {}) {
+  if (!override || typeof override !== "object" || Array.isArray(override)) return base;
+  const result = { ...base };
+  for (const [key, value] of Object.entries(override)) {
+    if (key === "mergeMode") continue;
+    if (Array.isArray(value)) {
+      const baseValue = Array.isArray(base[key]) && !shouldReplaceArray(override) ? base[key] : [];
+      result[key] = uniqueStrings([...baseValue, ...value]);
+    } else if (value && typeof value === "object" && !Array.isArray(value)) {
+      const baseValue = base[key] && typeof base[key] === "object" && !Array.isArray(base[key]) ? base[key] : {};
+      result[key] = mergeConfig(baseValue, value);
+    } else if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 export function loadConfig(args, root = pluginRoot()) {
-  const candidates = [];
+  const layers = [];
   if (args.configFile) {
-    candidates.push(resolve(args.cwd, args.configFile));
+    const explicitPath = resolve(args.cwd, args.configFile);
+    if (existsSync(explicitPath)) {
+      const config = safeReadJson(explicitPath);
+      return {
+        path: explicitPath,
+        config,
+        layers: [{ type: "explicit", path: explicitPath, config }],
+      };
+    }
+    return { path: null, config: {}, layers: [] };
   } else {
-    candidates.push(resolve(args.cwd, DEFAULT_CONFIG_FILENAME));
-    candidates.push(resolve(args.cwd, ".img.json"));
-    candidates.push(resolve(root, DEFAULT_CONFIG_FILENAME));
+    const globalPath = userConfigPath();
+    if (existsSync(globalPath)) {
+      layers.push({ type: "user", path: globalPath, config: safeReadJson(globalPath) });
+    }
+    const projectRoot = findProjectRoot(args.cwd);
+    const projectPath = findUpwardFile(args.cwd, [DEFAULT_CONFIG_FILENAME, ".img.json"], projectRoot || resolve(args.cwd));
+    if (projectPath) {
+      layers.push({ type: "project", path: projectPath, config: safeReadJson(projectPath) });
+    }
+    const pluginDefaultPath = resolve(root, DEFAULT_CONFIG_FILENAME);
+    if (layers.length === 0 && existsSync(pluginDefaultPath)) {
+      layers.push({ type: "plugin", path: pluginDefaultPath, config: safeReadJson(pluginDefaultPath) });
+    }
   }
 
-  const seen = new Set();
-  for (const file of candidates) {
-    if (seen.has(file)) continue;
-    seen.add(file);
-    if (!existsSync(file)) continue;
-    return { path: file, config: safeReadJson(file) };
-  }
-  return { path: null, config: {} };
+  const merged = layers.reduce((config, layer) => mergeConfig(config, layer.config), {});
+  const primary = [...layers].reverse().find((layer) => layer.type !== "plugin") || layers[layers.length - 1];
+  return {
+    path: primary?.path || null,
+    config: merged,
+    layers,
+  };
 }
 
 function defaultModelForProvider(provider) {
@@ -346,8 +462,13 @@ function parseEnvContent(content) {
 export function loadEnv(args, root = pluginRoot()) {
   const candidates = [];
   if (args.envFile) candidates.push(resolve(args.cwd, args.envFile));
-  candidates.push(resolve(args.cwd, ".env.local"));
-  candidates.push(resolve(args.cwd, ".env"));
+  const projectRoot = findProjectRoot(args.cwd);
+  const envSearchRoot = projectRoot || resolve(args.cwd);
+  const projectEnvLocal = findUpwardFile(args.cwd, ".env.local", envSearchRoot);
+  const projectEnv = findUpwardFile(args.cwd, ".env", envSearchRoot);
+  if (projectEnvLocal) candidates.push(projectEnvLocal);
+  if (projectEnv) candidates.push(projectEnv);
+  candidates.push(userEnvPath());
   candidates.push(resolve(root, ".env.local"));
   candidates.push(resolve(root, ".env"));
 
@@ -400,6 +521,7 @@ function timestamp() {
 export function validateArgs(args, requireKeys = true) {
   if (args.help) return;
   if (args.setup) return;
+  if (args.checkHealth) return;
   if (!PROVIDERS.has(args.provider)) {
     throw new Error(`Unsupported provider "${args.provider}". Use openai or gemini.`);
   }
@@ -490,31 +612,243 @@ function writeSetupConfigFile(configPath) {
   return true;
 }
 
+function isWritableOrCreatable(dirPath) {
+  try {
+    if (existsSync(dirPath)) {
+      const stat = statSync(dirPath);
+      if (!stat.isDirectory()) return false;
+      accessSync(dirPath, constants.W_OK);
+      return true;
+    }
+    let parent = dirname(resolve(dirPath));
+    while (!existsSync(parent)) {
+      const next = dirname(parent);
+      if (next === parent) return false;
+      parent = next;
+    }
+    accessSync(parent, constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function envPresence() {
+  return {
+    openai: envStatus(process.env.OPENAI_API_KEY),
+    gemini: envStatus(process.env.GEMINI_API_KEY),
+  };
+}
+
+function setupScopeFor(args) {
+  if (args.setupScope) return args.setupScope;
+  return findProjectRoot(args.cwd) ? "both" : "user";
+}
+
 function setupCommand(args, loadedEnvFiles) {
-  const envPath = resolve(args.cwd, args.envFile || ".env.local");
-  const configPath = resolve(args.cwd, args.configFile || DEFAULT_CONFIG_FILENAME);
-  const created = writeSetupEnvFile(envPath);
-  const configCreated = writeSetupConfigFile(configPath);
-  const loadedConfig = loadConfig({ ...args, configFile: configPath });
+  const scope = setupScopeFor(args);
+  const projectRoot = findProjectRoot(args.cwd) || resolve(args.cwd);
+  const envPath = args.envFile ? resolve(args.cwd, args.envFile) : userEnvPath();
+  const userConfig = userConfigPath();
+  const projectConfig = resolve(projectRoot, args.configFile || DEFAULT_CONFIG_FILENAME);
+  const created = scope === "user" || scope === "both" ? writeSetupEnvFile(envPath) : false;
+  const userConfigCreated = scope === "user" || scope === "both" ? writeSetupConfigFile(userConfig) : false;
+  const projectConfigCreated = scope === "project" || scope === "both" ? writeSetupConfigFile(projectConfig) : false;
+  const loadedConfig = loadConfig({ ...args, cwd: projectRoot });
   const defaultProvider = loadedConfig.config.defaultProvider || process.env.IMG_PROVIDER || "openai";
   return {
     setup: true,
-    envFile: envPath,
+    scope,
+    projectRoot,
+    envFile: scope === "project" ? null : envPath,
     envFileCreated: created,
-    configFile: configPath,
-    configFileCreated: configCreated,
+    userConfigFile: scope === "project" ? null : userConfig,
+    userConfigFileCreated: userConfigCreated,
+    projectConfigFile: scope === "user" ? null : projectConfig,
+    projectConfigFileCreated: projectConfigCreated,
+    configFile: scope === "user" ? userConfig : projectConfig,
+    configFileCreated: scope === "user" ? userConfigCreated : projectConfigCreated,
     defaultProvider,
-    keys: {
-      openai: envStatus(process.env.OPENAI_API_KEY),
-      gemini: envStatus(process.env.GEMINI_API_KEY),
-    },
+    keys: envPresence(),
     loadedEnvFiles,
     nextSteps: [
-      "Add OPENAI_API_KEY to the env file for the default /img path.",
+      "Add OPENAI_API_KEY to the user env file for the default /img path.",
       "Add GEMINI_API_KEY only if you want Gemini image generation too.",
-      "Edit img.config.json to change provider/model defaults, pre-prompts, or negative prompts.",
+      "Edit user config for personal defaults and project img.config.json for team defaults.",
       "Run: img generate a photorealistic 2:1 image of a dog",
     ],
+  };
+}
+
+function configWarnings(config, type) {
+  const warnings = [];
+  const allowed = new Set([
+    "schemaVersion",
+    "defaultProvider",
+    "provider",
+    "outputDir",
+    "openAfterGeneration",
+    "count",
+    "allowSilentMutation",
+    "limits",
+    "project",
+    "brand",
+    "assetTypes",
+    "destinations",
+    "prompt",
+    "openai",
+    "gemini",
+  ]);
+  for (const key of Object.keys(config || {})) {
+    if (!allowed.has(key)) warnings.push(`${type} config has unknown top-level field "${key}"`);
+  }
+  if (config && config.schemaVersion === undefined) warnings.push(`${type} config is legacy v1 without schemaVersion`);
+  if (config?.schemaVersion !== undefined && config.schemaVersion !== 1) warnings.push(`${type} config schemaVersion ${config.schemaVersion} is not supported`);
+  return warnings;
+}
+
+function configErrors(config, type) {
+  const errors = [];
+  if (!config || Object.keys(config).length === 0) return errors;
+  const provider = config.defaultProvider || config.provider;
+  if (provider && !PROVIDERS.has(String(provider).toLowerCase())) {
+    errors.push(`${type} config defaultProvider must be openai or gemini`);
+  }
+  if (config.count !== undefined && (!Number.isInteger(config.count) || config.count < 1 || config.count > 10)) {
+    errors.push(`${type} config count must be an integer from 1 to 10`);
+  }
+  if (config.limits?.maxImagesPerRun !== undefined && (!Number.isInteger(config.limits.maxImagesPerRun) || config.limits.maxImagesPerRun < 1)) {
+    errors.push(`${type} config limits.maxImagesPerRun must be a positive integer`);
+  }
+  if (config.limits?.maxCostPerRunUsd !== undefined && (typeof config.limits.maxCostPerRunUsd !== "number" || config.limits.maxCostPerRunUsd < 0)) {
+    errors.push(`${type} config limits.maxCostPerRunUsd must be a non-negative number`);
+  }
+  return errors;
+}
+
+function referencedBrandFiles(config = {}) {
+  return [
+    ...normalizePromptList(config.brand?.references),
+    ...normalizePromptList(config.project?.references),
+  ];
+}
+
+function destinationPaths(config = {}) {
+  const destinations = config.destinations || {};
+  return Object.entries(destinations)
+    .filter(([, destination]) => destination?.type === "folder" && destination.path)
+    .map(([name, destination]) => ({ name, path: destination.path }));
+}
+
+function insidePath(root, candidate) {
+  const rel = relative(root, candidate);
+  return rel === "" || (!!rel && !rel.startsWith("..") && !isAbsolute(rel));
+}
+
+function healthCommand(args, loadedEnvFiles, loadedConfig) {
+  const projectRoot = findProjectRoot(args.cwd);
+  const projectConfigLayer = loadedConfig.layers?.find((layer) => layer.type === "project");
+  const checks = [];
+  const add = (name, status, message, extra = {}) => checks.push({ name, status, message, ...extra });
+
+  const userConfig = userConfigPath();
+  add(
+    "user-config",
+    existsSync(userConfig) ? "ok" : "warning",
+    existsSync(userConfig) ? "User config exists." : "User config is missing; run img setup --user.",
+    { path: userConfig },
+  );
+
+  const userEnv = userEnvPath();
+  add(
+    "user-env",
+    existsSync(userEnv) ? "ok" : "warning",
+    existsSync(userEnv) ? "User env file exists." : "User env file is missing; run img setup --user.",
+    { path: userEnv },
+  );
+
+  const keys = envPresence();
+  const defaultProvider = String(loadedConfig.config.defaultProvider || loadedConfig.config.provider || "openai").toLowerCase();
+  add(
+    "default-provider-key",
+    keys[defaultProvider] === "present" ? "ok" : "warning",
+    keys[defaultProvider] === "present" ? `${defaultProvider} API key is present.` : `${defaultProvider} API key is ${keys[defaultProvider]}.`,
+    { provider: defaultProvider },
+  );
+
+  if (projectRoot) {
+    add("project-root", "ok", "Git project root detected.", { path: projectRoot });
+  } else {
+    add("project-root", "info", "No git project root detected; img will use user-level defaults.", { path: null });
+  }
+
+  if (projectConfigLayer) {
+    add("project-config", "ok", "Project config loaded.", { path: projectConfigLayer.path });
+  } else if (projectRoot) {
+    add("project-config", "warning", "No project img.config.json found; run img setup --project.", { path: join(projectRoot, DEFAULT_CONFIG_FILENAME) });
+  } else {
+    add("project-config", "info", "No project config expected outside a repo.", { path: null });
+  }
+
+  for (const layer of loadedConfig.layers || []) {
+    for (const warning of configWarnings(layer.config, layer.type)) {
+      add(`config-warning-${layer.type}`, "warning", warning, { path: layer.path });
+    }
+    for (const error of configErrors(layer.config, layer.type)) {
+      add(`config-error-${layer.type}`, "error", error, { path: layer.path });
+    }
+  }
+
+  const outputDir = resolve(args.cwd, loadedConfig.config.outputDir || args.outputDir || "./img-output");
+  add(
+    "output-dir",
+    isWritableOrCreatable(outputDir) ? "ok" : "error",
+    isWritableOrCreatable(outputDir) ? "Output folder is writable or can be created." : "Output folder is not writable.",
+    { path: outputDir },
+  );
+
+  const referenceRoot = projectRoot || args.cwd;
+  for (const ref of referencedBrandFiles(loadedConfig.config)) {
+    const refPath = resolve(referenceRoot, ref);
+    add(
+      `brand-reference:${ref}`,
+      existsSync(refPath) ? "ok" : "warning",
+      existsSync(refPath) ? "Brand reference exists." : "Brand reference is missing.",
+      { path: refPath },
+    );
+  }
+
+  for (const destination of destinationPaths(loadedConfig.config)) {
+    const destinationPath = resolve(referenceRoot, destination.path);
+    const external = loadedConfig.config.destinations?.[destination.name]?.external === true;
+    add(
+      `destination:${destination.name}`,
+      external || !projectRoot || insidePath(projectRoot, destinationPath) ? "ok" : "error",
+      external || !projectRoot || insidePath(projectRoot, destinationPath)
+        ? "Destination is inside the project or explicitly external."
+        : "Destination points outside the project and is not marked external.",
+      { path: destinationPath },
+    );
+  }
+
+  const recipeIndex = resolve(pluginRoot(), "resources", "prompt-recipes.jsonl");
+  add(
+    "recipe-index",
+    existsSync(recipeIndex) ? "ok" : "info",
+    existsSync(recipeIndex) ? "Bundled recipe index exists." : "Bundled recipe index is not installed yet; recipe matching will be unavailable.",
+    { path: recipeIndex },
+  );
+
+  const ok = !checks.some((check) => check.status === "error");
+  return {
+    checkHealth: true,
+    ok,
+    cwd: resolve(args.cwd),
+    projectRoot,
+    configFiles: loadedConfig.layers?.map((layer) => ({ type: layer.type, path: layer.path })) || [],
+    loadedEnvFiles,
+    keys,
+    checks,
   };
 }
 
@@ -814,7 +1148,8 @@ export function helpText() {
 
 Usage:
   img activate
-  img setup
+  img setup [--user|--project|--both]
+  img check-health
   img generate a photorealistic 2:1 image of a dog
   img --provider openai --prompt "A clean app icon"
   img --provider gemini --prompt "A clean app icon" --aspect 1:1 --image-size 1K
@@ -823,7 +1158,8 @@ Usage:
 Options:
   --provider openai|gemini       Provider to call. Default: config defaultProvider, IMG_PROVIDER, or openai.
   --prompt, -p TEXT              Image prompt.
-  --config FILE                  Setup config file. Default: ./img.config.json.
+  --config FILE                  Explicit config file.
+  --env-file FILE                Explicit env file.
   --input, -i FILE               Reference image. Repeat for multiple images.
   --mask FILE                    OpenAI edit mask.
   --out, -o DIR                  Output directory. Default: config outputDir, IMG_OUTPUT_DIR, or ./img-output.
@@ -860,6 +1196,7 @@ export async function run(rawArgs = []) {
   const loadedEnvFiles = loadEnv(args);
   if (args.setup) return setupCommand(args, loadedEnvFiles);
   const loadedConfig = loadConfig(args);
+  if (args.checkHealth) return healthCommand(args, loadedEnvFiles, loadedConfig);
   applyConfigDefaults(args, loadedConfig.config);
   validateArgs(args, !args.dryRun);
 

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nyldn/img/schemas/config.schema.json",
+  "title": "img config",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "defaultProvider": {
+      "enum": ["openai", "gemini"]
+    },
+    "outputDir": {
+      "type": "string"
+    },
+    "openAfterGeneration": {
+      "type": "boolean"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "allowSilentMutation": {
+      "type": "boolean"
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "maxImagesPerRun": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxCostPerRunUsd": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "brand": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "assetTypes": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "destinations": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "prompt": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "openai": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "gemini": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

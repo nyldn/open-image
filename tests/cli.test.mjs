@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -13,12 +13,42 @@ import {
   buildOpenAIJsonBody,
   composePrompt,
   formatErrorForCli,
+  findProjectRoot,
   loadConfig,
   loadEnv,
   parseArgs,
   run,
+  userConfigPath,
+  userEnvPath,
   validateArgs,
 } from "../src/img.mjs";
+
+async function withEnv(updates, callback) {
+  const previous = {};
+  for (const key of Object.keys(updates)) {
+    previous[key] = process.env[key];
+    if (updates[key] === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = updates[key];
+    }
+  }
+  try {
+    return await callback();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
+function tempConfigHome() {
+  return mkdtempSync(join(tmpdir(), "img-config-home-"));
+}
 
 test("parseArgs defaults to OpenAI GPT Image 2", () => {
   const args = parseArgs(["--prompt", "A clean app icon"]);
@@ -103,10 +133,29 @@ test("loadEnv reads project .env without overriding process env", () => {
   const cwd = mkdtempSync(join(tmpdir(), "img-env-"));
   writeFileSync(join(cwd, ".env"), "IMG_TEST_KEY=from-file\n");
   delete process.env.IMG_TEST_KEY;
-  const args = parseArgs(["--prompt", "x", "--cwd", cwd]);
-  const loaded = loadEnv(args, cwd);
-  assert.equal(process.env.IMG_TEST_KEY, "from-file");
-  assert.equal(loaded.length, 1);
+  return withEnv({ IMG_CONFIG_HOME: tempConfigHome() }, async () => {
+    const args = parseArgs(["--prompt", "x", "--cwd", cwd]);
+    const loaded = loadEnv(args, cwd);
+    assert.equal(process.env.IMG_TEST_KEY, "from-file");
+    assert.equal(loaded.includes(join(cwd, ".env")), true);
+  });
+});
+
+test("loadEnv does not walk above the detected git project root", () => {
+  const parent = mkdtempSync(join(tmpdir(), "img-env-parent-"));
+  const repo = join(parent, "repo");
+  const nested = join(repo, "app");
+  mkdirSync(join(repo, ".git"), { recursive: true });
+  mkdirSync(nested, { recursive: true });
+  writeFileSync(join(parent, ".env"), "IMG_PARENT_SECRET=do-not-load\n");
+  delete process.env.IMG_PARENT_SECRET;
+
+  return withEnv({ IMG_CONFIG_HOME: tempConfigHome() }, async () => {
+    const args = parseArgs(["--prompt", "x", "--cwd", nested]);
+    const loaded = loadEnv(args, repo);
+    assert.equal(loaded.includes(join(parent, ".env")), false);
+    assert.equal(process.env.IMG_PARENT_SECRET, undefined);
+  });
 });
 
 test("loadConfig applies provider defaults and prompt composition", async () => {
@@ -154,9 +203,49 @@ test("loadConfig reads img.config.json from cwd", () => {
   const cwd = mkdtempSync(join(tmpdir(), "img-load-config-"));
   const configPath = join(cwd, "img.config.json");
   writeFileSync(configPath, JSON.stringify({ defaultProvider: "openai" }));
-  const loaded = loadConfig(parseArgs(["--cwd", cwd, "A", "prompt"]));
-  assert.equal(loaded.path, configPath);
-  assert.equal(loaded.config.defaultProvider, "openai");
+  return withEnv({ IMG_CONFIG_HOME: tempConfigHome() }, async () => {
+    const loaded = loadConfig(parseArgs(["--cwd", cwd, "A", "prompt"]));
+    assert.equal(loaded.path, configPath);
+    assert.equal(loaded.config.defaultProvider, "openai");
+  });
+});
+
+test("loadConfig layers user config and nearest project config", () => {
+  const configHome = tempConfigHome();
+  const repo = mkdtempSync(join(tmpdir(), "img-layered-"));
+  const nested = join(repo, "packages", "site");
+  mkdirSync(join(repo, ".git"));
+  mkdirSync(nested, { recursive: true });
+  writeFileSync(userConfigPath({ IMG_CONFIG_HOME: configHome }), JSON.stringify({
+    defaultProvider: "openai",
+    outputDir: "./user-output",
+    prompt: {
+      prePrompts: ["Use global brand polish."],
+      negativePrompts: ["watermarks"],
+    },
+  }, null, 2));
+  writeFileSync(join(repo, "img.config.json"), JSON.stringify({
+    schemaVersion: 1,
+    defaultProvider: "gemini",
+    outputDir: "./project-output",
+    prompt: {
+      prePrompts: ["Use project campaign styling."],
+      negativePrompts: ["watermarks", "fake UI text"],
+    },
+  }, null, 2));
+
+  return withEnv({ IMG_CONFIG_HOME: configHome }, async () => {
+    const loaded = loadConfig(parseArgs(["--cwd", nested, "A", "prompt"]));
+    assert.equal(loaded.path, join(repo, "img.config.json"));
+    assert.deepEqual(loaded.layers.map((layer) => layer.type), ["user", "project"]);
+    assert.equal(loaded.config.defaultProvider, "gemini");
+    assert.equal(loaded.config.outputDir, "./project-output");
+    assert.deepEqual(loaded.config.prompt.prePrompts, [
+      "Use global brand polish.",
+      "Use project campaign styling.",
+    ]);
+    assert.deepEqual(loaded.config.prompt.negativePrompts, ["watermarks", "fake UI text"]);
+  });
 });
 
 test("validateArgs allows dry-run without API keys", () => {
@@ -211,19 +300,104 @@ test("run dry-run returns provider metadata", async () => {
   assert.equal(result.model, GEMINI_DEFAULT_MODEL);
 });
 
-test("setup creates a local env template without requiring API keys", async () => {
+test("setup creates user files outside a git repo without requiring API keys", async () => {
   const cwd = mkdtempSync(join(tmpdir(), "img-setup-"));
-  const result = await run(["setup", "--cwd", cwd]);
-  const envPath = join(cwd, ".env.local");
-  const configPath = join(cwd, "img.config.json");
-  assert.equal(result.setup, true);
-  assert.equal(result.defaultProvider, "openai");
-  assert.equal(result.envFile, envPath);
-  assert.equal(result.envFileCreated, true);
-  assert.equal(result.configFile, configPath);
-  assert.equal(result.configFileCreated, true);
-  assert.equal(result.keys.openai, "missing");
-  assert.equal(existsSync(envPath), true);
-  assert.equal(existsSync(configPath), true);
-  assert.match(readFileSync(configPath, "utf8"), /"prePrompts"/);
+  const configHome = tempConfigHome();
+  await withEnv({
+    IMG_CONFIG_HOME: configHome,
+    OPENAI_API_KEY: undefined,
+    GEMINI_API_KEY: undefined,
+  }, async () => {
+    const result = await run(["setup", "--cwd", cwd]);
+    const envPath = userEnvPath({ IMG_CONFIG_HOME: configHome });
+    const configPath = userConfigPath({ IMG_CONFIG_HOME: configHome });
+    assert.equal(result.setup, true);
+    assert.equal(result.scope, "user");
+    assert.equal(result.defaultProvider, "openai");
+    assert.equal(result.envFile, envPath);
+    assert.equal(result.envFileCreated, true);
+    assert.equal(result.userConfigFile, configPath);
+    assert.equal(result.userConfigFileCreated, true);
+    assert.equal(result.projectConfigFile, null);
+    assert.equal(result.keys.openai, "missing");
+    assert.equal(existsSync(envPath), true);
+    assert.equal(existsSync(configPath), true);
+    assert.equal(existsSync(join(cwd, "img.config.json")), false);
+    assert.match(readFileSync(configPath, "utf8"), /"assetTypes"/);
+  });
+});
+
+test("setup --both inside a git repo creates user files and project config", async () => {
+  const repo = mkdtempSync(join(tmpdir(), "img-setup-repo-"));
+  mkdirSync(join(repo, ".git"));
+  const configHome = tempConfigHome();
+  await withEnv({
+    IMG_CONFIG_HOME: configHome,
+    OPENAI_API_KEY: undefined,
+    GEMINI_API_KEY: undefined,
+  }, async () => {
+    const result = await run(["setup", "--both", "--cwd", repo]);
+    assert.equal(result.scope, "both");
+    assert.equal(result.projectRoot, repo);
+    assert.equal(result.envFile, userEnvPath({ IMG_CONFIG_HOME: configHome }));
+    assert.equal(result.userConfigFile, userConfigPath({ IMG_CONFIG_HOME: configHome }));
+    assert.equal(result.projectConfigFile, join(repo, "img.config.json"));
+    assert.equal(existsSync(result.envFile), true);
+    assert.equal(existsSync(result.userConfigFile), true);
+    assert.equal(existsSync(result.projectConfigFile), true);
+  });
+});
+
+test("setup --project creates only project config", async () => {
+  const repo = mkdtempSync(join(tmpdir(), "img-setup-project-"));
+  mkdirSync(join(repo, ".git"));
+  const configHome = tempConfigHome();
+  await withEnv({ IMG_CONFIG_HOME: configHome }, async () => {
+    const result = await run(["setup", "--project", "--cwd", repo]);
+    assert.equal(result.scope, "project");
+    assert.equal(result.envFile, null);
+    assert.equal(result.userConfigFile, null);
+    assert.equal(result.projectConfigFile, join(repo, "img.config.json"));
+    assert.equal(existsSync(userEnvPath({ IMG_CONFIG_HOME: configHome })), false);
+    assert.equal(existsSync(result.projectConfigFile), true);
+  });
+});
+
+test("findProjectRoot walks upward from nested project folders", () => {
+  const repo = mkdtempSync(join(tmpdir(), "img-root-"));
+  const nested = join(repo, "apps", "site");
+  mkdirSync(join(repo, ".git"));
+  mkdirSync(nested, { recursive: true });
+  assert.equal(findProjectRoot(nested), repo);
+});
+
+test("check-health reports config layers without exposing secrets", async () => {
+  const repo = mkdtempSync(join(tmpdir(), "img-health-"));
+  mkdirSync(join(repo, ".git"));
+  const configHome = tempConfigHome();
+  writeFileSync(userConfigPath({ IMG_CONFIG_HOME: configHome }), JSON.stringify({
+    schemaVersion: 1,
+    defaultProvider: "openai",
+  }, null, 2));
+  writeFileSync(join(repo, "img.config.json"), JSON.stringify({
+    schemaVersion: 1,
+    outputDir: "./generated",
+    brand: {
+      references: ["docs/brand.md"],
+    },
+  }, null, 2));
+
+  await withEnv({
+    IMG_CONFIG_HOME: configHome,
+    OPENAI_API_KEY: "sk-test-secret",
+    GEMINI_API_KEY: undefined,
+  }, async () => {
+    const result = await run(["check-health", "--cwd", repo]);
+    assert.equal(result.checkHealth, true);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.configFiles.map((file) => file.type), ["user", "project"]);
+    assert.equal(result.keys.openai, "present");
+    assert.equal(JSON.stringify(result).includes("sk-test-secret"), false);
+    assert.equal(result.checks.some((check) => check.name === "brand-reference:docs/brand.md" && check.status === "warning"), true);
+  });
 });

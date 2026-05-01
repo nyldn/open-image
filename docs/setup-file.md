@@ -1,20 +1,123 @@
-# Setup File
+# Setup Files
 
-`img setup` creates two local files in the current project:
+`img setup` prepares Image Agency for both personal defaults and shared project
+defaults.
 
-- `.env.local` for API keys
-- `img.config.json` for non-secret defaults
+Default behavior:
 
-Do not put API keys in `img.config.json`.
+- inside a git repo: create/check user files and project `img.config.json`
+- outside a git repo: create/check user files only
+
+Explicit modes:
+
+```bash
+img setup --user
+img setup --project
+img setup --both
+img check-health
+```
+
+## User Files
+
+User files are private to the current machine:
+
+```text
+~/.config/img/.env.local
+~/.config/img/config.json
+```
+
+Use `.env.local` for API keys:
+
+```bash
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+```
+
+Use `config.json` for personal provider, output, and prompt defaults. These
+defaults are applied before project config.
+
+## Project File
+
+Project config is intended to be committed:
+
+```text
+img.config.json
+```
+
+It stores team-safe defaults such as brand prompts, asset types, destinations,
+ratios, naming rules, and cost limits. Do not put API keys in this file.
+
+Precedence:
+
+1. CLI flags and slash-command choices
+2. nearest project `img.config.json`
+3. user config at `~/.config/img/config.json`
+4. plugin defaults
+
+Prompt arrays append from user config to project config and remove exact
+duplicates. Project config can set `mergeMode: "replace"` on an object when a
+supported array field should replace lower-precedence defaults.
 
 ## Template
 
 ```json
 {
+  "schemaVersion": 1,
   "defaultProvider": "openai",
   "outputDir": "./img-output",
   "openAfterGeneration": false,
   "count": 1,
+  "allowSilentMutation": false,
+  "limits": {
+    "maxImagesPerRun": 12,
+    "maxCostPerRunUsd": 25
+  },
+  "project": {
+    "name": "",
+    "framework": "",
+    "siteRoot": "."
+  },
+  "brand": {
+    "prePrompts": [],
+    "negativePrompts": [],
+    "references": []
+  },
+  "assetTypes": {
+    "hero": {
+      "aliases": ["hero image", "homepage hero"],
+      "provider": "openai",
+      "aspect": "16:9",
+      "size": "auto",
+      "style": "",
+      "outputDir": "public/generated/hero",
+      "filenamePattern": "hero-{slug}-{index}",
+      "destination": "project-assets"
+    },
+    "feature-card": {
+      "aliases": ["feature card", "feature tile", "benefit card", "benefit tile"],
+      "provider": "openai",
+      "aspect": "4:3",
+      "size": "auto",
+      "style": "",
+      "outputDir": "public/generated/features",
+      "filenamePattern": "feature-{slug}-{index}",
+      "destination": "project-assets"
+    }
+  },
+  "destinations": {
+    "local": {
+      "type": "folder",
+      "path": "./img-output"
+    },
+    "project-assets": {
+      "type": "folder",
+      "path": "public/generated"
+    },
+    "site-proposal": {
+      "type": "site",
+      "mode": "proposal"
+    }
+  },
   "prompt": {
     "prePrompts": [],
     "negativePrompts": []
@@ -65,5 +168,5 @@ When the user runs:
 img generate a photorealistic 2:1 image of a dog
 ```
 
-img sends a composed prompt containing the pre-prompts, the user's prompt, and the negative prompts. The saved filename still uses the user's original prompt.
-
+img sends a composed prompt containing the pre-prompts, the user's prompt, and
+the negative prompts. The saved filename still uses the user's original prompt.

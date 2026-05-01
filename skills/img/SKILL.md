@@ -10,10 +10,10 @@ Use this skill when the user wants image generation or image editing through the
 ## Runtime Contract
 
 - Use `img` from the plugin `bin/` directory.
-- Read provider credentials from the user's environment or project `.env`.
+- Read provider credentials from the user's environment, project `.env`, or user `~/.config/img/.env.local`.
 - Use `OPENAI_API_KEY` for OpenAI.
 - Use `GEMINI_API_KEY` for Gemini.
-- Load `img.config.json` for provider/model defaults and prompt defaults.
+- Load user config from `~/.config/img/config.json` and nearest project `img.config.json`; project config overrides user config.
 - Include configured pre-prompts and negative prompts with every provider API prompt.
 - Do not fall back from one provider to the other after a failure.
 - Save generated files to `IMG_OUTPUT_DIR` or `./img-output`.
@@ -35,7 +35,10 @@ Set up local environment:
 
 ```bash
 img setup
+img check-health
 ```
+
+Use `img setup --user` for machine-local secrets/defaults, `img setup --project` for shared project config, and `img setup --both` inside a repo when a teammate needs both.
 
 Generate with OpenAI:
 

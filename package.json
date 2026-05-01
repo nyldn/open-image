@@ -35,6 +35,7 @@
     "commands/",
     "docs/",
     "scripts/",
+    "schemas/",
     "skills/",
     "src/",
     "templates/",

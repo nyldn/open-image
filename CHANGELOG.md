@@ -9,4 +9,4 @@
 - Added `img activate` terminal loader with an image emoji and ASCII wordmark.
 - Added README VHS demo for Claude `/img`, Codex `$img`, setup, and project-aware planning flows.
 - Added tests, validation script, and GitHub Actions CI.
-- Added `img.config.json` setup template for model defaults, pre-prompts, and negative prompts.
+- Added layered user/project config, scoped setup, `img check-health`, schemas, and project profile fields for brand prompts, asset types, destinations, and limits.
