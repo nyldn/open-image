@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Simulated img demo for VHS recording.
+# Simulated Image Agency demo for VHS recording.
 set -euo pipefail
 
 BOLD='\033[1m'
@@ -39,7 +39,7 @@ cat <<'WORDMARK'
 WORDMARK
 echo -e "${RESET}"
 
-print_slow "${DIM}    IMAGE WORKFLOW LOADER v0.1${RESET}" 0.25
+print_slow "${DIM}    IMAGE AGENCY v0.1${RESET}" 0.25
 print_slow "${DIM}    CONTEXT BUS ......... READY${RESET}" 0.2
 print_slow "${DIM}    PLAN ENGINE ......... READY${RESET}" 0.2
 print_slow "${DIM}    OPENAI GPT-IMAGE-2 .. READY${RESET}" 0.2
@@ -57,7 +57,7 @@ echo ""
 sleep 0.5
 
 print_slow ""
-print_slow "${BOLD}${CYAN}🖼️ img activated${RESET} — project-aware image planning"
+print_slow "${BOLD}${CYAN}🖼️ Image Agency activated${RESET} — project-aware image planning"
 print_slow "  ${GREEN}✓${RESET} Found project config: ${BOLD}img.config.json${RESET}" 0.18
 print_slow "  ${GREEN}✓${RESET} Detected asset type: ${BOLD}benefit-card${RESET} via aliases" 0.18
 print_slow "  ${GREEN}✓${RESET} Found 6 repeated image slots in ${BOLD}src/components/Benefits.astro${RESET}" 0.18
@@ -85,7 +85,7 @@ echo ""
 sleep 0.5
 
 print_slow ""
-print_slow "${BOLD}${MAGENTA}🖼️ Codex skill: ${RESET}${BOLD}\$img${RESET}"
+print_slow "${BOLD}${MAGENTA}🖼️ Image Agency for Codex: ${RESET}${BOLD}\$img${RESET}"
 print_slow "  ${GREEN}✓${RESET} Loaded user defaults from ${BOLD}~/.config/img/config.json${RESET}" 0.18
 print_slow "  ${GREEN}✓${RESET} Matched recipe: ${BOLD}social-media-post / product-marketing${RESET}" 0.18
 print_slow "  ${GREEN}✓${RESET} Provider: ${BOLD}gpt-image-2${RESET}  Count: ${BOLD}3${RESET}" 0.18
@@ -103,7 +103,7 @@ echo ""
 sleep 0.5
 
 print_slow ""
-print_slow "${BOLD}${CYAN}🖼️ img setup${RESET}"
+print_slow "${BOLD}${CYAN}🖼️ Image Agency setup${RESET}"
 print_slow "  ${GREEN}✓${RESET} User secrets: ${BOLD}~/.config/img/.env.local${RESET}" 0.18
 print_slow "  ${GREEN}✓${RESET} Project profile: ${BOLD}img.config.json${RESET}" 0.18
 print_slow "  ${GREEN}✓${RESET} Health check: provider keys present, output folders writable" 0.18

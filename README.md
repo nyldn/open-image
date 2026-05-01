@@ -1,16 +1,16 @@
-# 🖼️ img
+# 🖼️ Image Agency
 
-img is a Claude Code and Codex workflow for turning natural language into planned, on-brand image generation.
+Image Agency is the public-facing name for the `img` Claude Code and Codex workflow: natural language in, planned on-brand image work out.
 
 It can call:
 
 - OpenAI `gpt-image-2`
 - Google `gemini-3.1-flash-image-preview`
 
-There is no fallback between providers. Pick the provider you want, or use the project defaults, and img reports that provider's result or error.
+There is no fallback between providers. Pick the provider you want, or use the project defaults, and Image Agency reports that provider's result or error.
 
 <p align="center">
-  <img src="docs/assets/demo.gif" alt="img demo showing Claude /img, Codex $img, planning, setup, and generated asset workflow" width="720">
+  <img src="docs/assets/demo.gif" alt="Image Agency demo showing Claude /img, Codex $img, planning, setup, and generated asset workflow" width="720">
 </p>
 
 ## Primary Workflows
@@ -30,7 +30,7 @@ For terminal workflows, show the loader:
 img activate
 ```
 
-It prints the `img` ASCII wordmark with the image emoji and the workflow stages: context, plan, generate, deliver.
+It prints the Image Agency loader with the `img` ASCII wordmark, the image emoji, and the workflow stages: context, plan, generate, deliver.
 
 ## Setup
 
