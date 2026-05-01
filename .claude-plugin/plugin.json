@@ -1,0 +1,20 @@
+{
+  "name": "open-image",
+  "version": "0.1.0",
+  "description": "Generate and edit images with OpenAI GPT Image 2 and Gemini 3.1 Flash Image Preview. No provider fallback.",
+  "author": {
+    "name": "nyldn",
+    "url": "https://github.com/nyldn"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/nyldn/open-image",
+  "homepage": "https://github.com/nyldn/open-image",
+  "keywords": [
+    "image-generation",
+    "gpt-image-2",
+    "gemini-3.1-flash-image-preview",
+    "claude-code-plugin",
+    "codex"
+  ]
+}
+
