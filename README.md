@@ -36,7 +36,15 @@ Calls one of two providers, with **no automatic fallback**:
 Run this in your terminal, not inside a Claude Code session:
 
 ```bash
-claude plugin marketplace add https://github.com/nyldn/img.git
+claude plugin marketplace add https://github.com/nyldn/plugins.git
+claude plugin install img@nyldn-plugins
+```
+
+`nyldn-plugins` is a shared marketplace catalog at
+`https://github.com/nyldn/plugins.git`, and it makes both plugins available:
+
+```bash
+claude plugin install octo@nyldn-plugins
 claude plugin install img@nyldn-plugins
 ```
 
@@ -332,13 +340,26 @@ If you use npm after publication, `npm install -g @nyldn/img` works too.
 Use the full GitHub URL from a terminal:
 
 ```bash
-claude plugin marketplace add https://github.com/nyldn/img.git
+claude plugin marketplace add https://github.com/nyldn/plugins.git
 claude plugin install img@nyldn-plugins
 ```
 
 Then restart Claude Code and run `/img:setup`.
 
 If you previously tried `/plugin marketplace add nyldn/img` inside Claude Code, remove that failed marketplace entry if it appears in `claude plugin marketplace list`, then add the full URL again from the terminal.
+
+### `img` or `octo` fails after adding another nyldn marketplace
+
+Claude indexes marketplaces by manifest `name`. If your machine has an older
+standalone `nyldn-plugins` entry, re-add the shared catalog and reinstall the
+plugins you use:
+
+```bash
+claude plugin marketplace remove nyldn-plugins
+claude plugin marketplace add https://github.com/nyldn/plugins.git
+claude plugin install img@nyldn-plugins
+claude plugin install octo@nyldn-plugins
+```
 
 ### `OPENAI_API_KEY is required for --provider openai`
 
@@ -411,8 +432,10 @@ You ran outside a git repo. Either `git init` the project, or pass `--cwd` to a 
 
 ```text
 claude plugin uninstall img@nyldn-plugins
-claude plugin marketplace remove nyldn-plugins
 ```
+
+Only remove `nyldn-plugins` if you are not using other nyldn plugins such as
+`octo`.
 
 If you installed the bare alias:
 

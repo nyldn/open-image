@@ -24,9 +24,19 @@ assert(packageJson.version === codexManifest.version, "package.json and Codex ma
 assert(claudeManifest.name === "img", "Claude manifest name must be img");
 assert(codexManifest.name === "img", "Codex manifest name must be img");
 assert(claudeMarketplace.name === "nyldn-plugins", "Claude marketplace name must be nyldn-plugins");
-assert(claudeMarketplace.plugins?.[0]?.name === claudeManifest.name, "Claude marketplace plugin name must match plugin manifest");
-assert(claudeMarketplace.plugins?.[0]?.source === "./", "Claude marketplace plugin source must be ./");
-assert(claudeMarketplace.plugins?.[0]?.version === claudeManifest.version, "Claude marketplace plugin version must match plugin manifest");
+const claudeImgEntry = claudeMarketplace.plugins?.find((plugin) => plugin.name === claudeManifest.name);
+const claudeOctoEntry = claudeMarketplace.plugins?.find((plugin) => plugin.name === "octo");
+assert(claudeMarketplace.plugins?.[0]?.name === "octo", "Claude marketplace must keep octo first for Octopus release checks");
+assert(claudeImgEntry, "Claude marketplace must include img");
+assert(claudeImgEntry.source?.source === "url", "Claude marketplace img source must be a URL source");
+assert(claudeImgEntry.source?.url === "https://github.com/nyldn/img.git", "Claude marketplace img source must point at nyldn/img");
+assert(claudeImgEntry.version === claudeManifest.version, "Claude marketplace img version must match plugin manifest");
+assert(claudeOctoEntry, "Claude marketplace must include octo to avoid nyldn-plugins catalog overwrite conflicts");
+assert(claudeOctoEntry.source?.source === "url", "Claude marketplace octo source must be a URL source");
+assert(
+  claudeOctoEntry.source?.url === "https://github.com/nyldn/claude-octopus.git",
+  "Claude marketplace octo source must point at nyldn/claude-octopus",
+);
 assert(codexMarketplace.name === "nyldn-plugins", "Codex marketplace name must be nyldn-plugins");
 assert(codexMarketplace.plugins?.[0]?.name === codexManifest.name, "Codex marketplace plugin name must match plugin manifest");
 assert(codexMarketplace.plugins?.[0]?.source?.path === "./", "Codex marketplace plugin source path must be ./");

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MARKETPLACE="https://github.com/nyldn/img.git"
+MARKETPLACE="https://github.com/nyldn/plugins.git"
 PLUGIN="img@nyldn-plugins"
 SCOPE="user"
 INSTALL_BARE_ALIAS="false"
