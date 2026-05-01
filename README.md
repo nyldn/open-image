@@ -18,7 +18,7 @@ There is no fallback between providers. Pick the provider you want, or use the p
 Use natural language from the agent you already have open:
 
 ```text
-/img review the 6 benefit cards and create on-brand versions of appropriate images for each one
+/img review this landing page and create on-brand hero and feature-card images, then prepare a site insertion proposal
 $img "create three launch social cards for the new member app"
 /img turn the homepage hero into a warmer 16:9 editorial image that matches this site
 /img prepare replacement imagery for these pricing feature tiles, but do not edit the site yet

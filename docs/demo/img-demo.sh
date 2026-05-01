@@ -52,28 +52,22 @@ sleep 1.7
 clear
 sleep 0.2
 printf "${BOLD}${BLUE}>${RESET} "
-type_text '/img review the 6 benefit cards and create on-brand versions of appropriate images for each one' 0.025
+type_text '/img review this landing page and create on-brand hero and feature-card images, then prepare a site insertion proposal' 0.025
 echo ""
 sleep 0.5
 
 print_slow ""
 print_slow "${BOLD}${CYAN}🖼️ Image Agency activated${RESET} — project-aware image planning"
 print_slow "  ${GREEN}✓${RESET} Found project config: ${BOLD}img.config.json${RESET}" 0.18
-print_slow "  ${GREEN}✓${RESET} Detected asset type: ${BOLD}benefit-card${RESET} via aliases" 0.18
-print_slow "  ${GREEN}✓${RESET} Found 6 repeated image slots in ${BOLD}src/components/Benefits.astro${RESET}" 0.18
-print_slow "  ${GREEN}✓${RESET} Ratio: ${BOLD}4:3${RESET}  Output: ${BOLD}public/generated/benefits${RESET}" 0.18
+print_slow "  ${GREEN}✓${RESET} Detected asset set: ${BOLD}landing-page-images${RESET}" 0.18
+print_slow "  ${GREEN}✓${RESET} Found hero + 3 feature-card slots in ${BOLD}src/pages/index.astro${RESET}" 0.18
+print_slow "  ${GREEN}✓${RESET} Ratios: ${BOLD}16:9 hero${RESET}, ${BOLD}4:3 cards${RESET}" 0.18
 print_slow ""
-print_slow "${DIM}Clarification needed: delivery target${RESET}" 0.2
-print_slow "  ${YELLOW}?${RESET} Generate to project assets, local review folder, or site insertion proposal?" 0.2
-sleep 0.6
-printf "${BOLD}${BLUE}>${RESET} "
-type_text "project assets" 0.035
-echo ""
-sleep 0.4
+print_slow "  ${YELLOW}→${RESET} Delivery: ${BOLD}site insertion proposal${RESET} — no source files edited yet" 0.2
 print_slow ""
 print_slow "  ${GREEN}✓${RESET} Plan id: ${DIM}e41c8f...${RESET}" 0.18
-print_slow "  ${GREEN}✓${RESET} 6 prompts composed with brand pre-prompts and negative prompts" 0.18
-print_slow "  ${GREEN}✓${RESET} Manifest: ${BOLD}public/generated/benefits/img-manifest.json${RESET}" 0.18
+print_slow "  ${GREEN}✓${RESET} 4 prompts composed with brand pre-prompts and negative prompts" 0.18
+print_slow "  ${GREEN}✓${RESET} Proposal manifest: ${BOLD}public/generated/landing/img-manifest.json${RESET}" 0.18
 
 sleep 2.2
 
