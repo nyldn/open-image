@@ -36,8 +36,14 @@ command -v claude >/dev/null 2>&1 || fail "Missing required command: claude"
 echo "Adding Claude marketplace $MARKETPLACE..."
 claude plugin marketplace add "$MARKETPLACE" --scope "$SCOPE"
 
+echo "Updating Claude marketplace nyldn-plugins..."
+claude plugin marketplace update nyldn-plugins
+
 echo "Installing $PLUGIN..."
 claude plugin install "$PLUGIN" --scope "$SCOPE"
+
+echo "Updating $PLUGIN..."
+claude plugin update "$PLUGIN" --scope "$SCOPE"
 
 if [ "$CLEANUP_USER_COMMAND" = "true" ]; then
   echo "Removing generated user /img command if present..."

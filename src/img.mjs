@@ -896,7 +896,9 @@ export function buildInstallPlan({ target = "all", hasClaude = false, hasCodex =
         actions: includeClaude && hasClaude
           ? [
               `claude plugin marketplace add ${MARKETPLACE_URL} --scope user`,
+              "claude plugin marketplace update nyldn-plugins",
               `claude plugin install ${PLUGIN_REF} --scope user`,
+              `claude plugin update ${PLUGIN_REF} --scope user`,
               "remove generated Claude user /img command if present",
             ]
           : [],
@@ -942,7 +944,9 @@ async function installCommand(args, loadedEnvFiles, loadedCredentialKeys) {
   const results = [];
   if (plan.targets.claude.available) {
     runInstallStep("claude", ["plugin", "marketplace", "add", MARKETPLACE_URL, "--scope", "user"]);
+    runInstallStep("claude", ["plugin", "marketplace", "update", "nyldn-plugins"]);
     runInstallStep("claude", ["plugin", "install", PLUGIN_REF, "--scope", "user"]);
+    runInstallStep("claude", ["plugin", "update", PLUGIN_REF, "--scope", "user"]);
     const cleanupScript = resolve(pluginRoot(), "scripts", "cleanup-claude-user-command.sh");
     if (existsSync(cleanupScript)) runInstallStep(cleanupScript, []);
     results.push({ target: "claude", installed: true });

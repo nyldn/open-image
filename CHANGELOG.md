@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.15 - 2026-05-02
+
+- Made Claude installs update the `nyldn-plugins` marketplace and `img`
+  plugin cache instead of leaving stale plugin versions in place.
+- Changed `/img:setup` to use JSON setup and health checks without printing the
+  activation banner, and to treat macOS Keychain credentials as valid.
+
 ## 0.1.14 - 2026-05-02
 
 - Stopped installing a separate Claude user `/img` command so the marketplace
