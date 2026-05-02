@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.11 - 2026-05-02
+
+- Removed unused project name and framework prompts from the setup control
+  panel and default project config.
+
 ## 0.1.10 - 2026-05-02
 
 - Made npm postinstall tolerate missing controlling terminals so global

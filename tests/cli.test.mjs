@@ -426,6 +426,21 @@ test("setup panel has a compact branded control-room intro", () => {
   assert.match(panel, /q\) Save and exit\s+leave before this becomes a dashboard/);
 });
 
+test("project setup does not ask for unused project identity metadata", () => {
+  const source = readFileSync("src/img.mjs", "utf8");
+  const template = JSON.parse(readFileSync("templates/img.config.json", "utf8"));
+  const setupDocs = readFileSync("docs/setup-file.md", "utf8");
+  const schema = JSON.parse(readFileSync("schemas/config.schema.json", "utf8"));
+
+  assert.doesNotMatch(source, /Project name|Framework|project\.name|project\.framework/);
+  assert.equal(template.project.name, undefined);
+  assert.equal(template.project.framework, undefined);
+  assert.doesNotMatch(setupDocs, /"name": ""|"framework": ""/);
+  assert.equal(schema.properties.project.properties.name, undefined);
+  assert.equal(schema.properties.project.properties.framework, undefined);
+  assert.equal(schema.properties.project.additionalProperties, true);
+});
+
 test("validateArgs rejects unsupported Gemini image sizes before calling the API", () => {
   const args = parseArgs(["--provider", "gemini", "--prompt", "A clean app icon", "--image-size", "0.5K"]);
   assert.throws(() => validateArgs(args, false), /Use 1K, 2K, or 4K/);

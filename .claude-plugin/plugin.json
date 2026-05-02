@@ -1,6 +1,6 @@
 {
   "name": "img",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Generate and edit images with OpenAI GPT Image 2 and Gemini 3.1 Flash Image Preview. No provider fallback.",
   "author": {
     "name": "nyldn",

@@ -1302,8 +1302,6 @@ async function projectBrandPanel(rl, args) {
   config.project = config.project || {};
   config.brand = config.brand || {};
   renderSetupHeader("Project Brand Defaults");
-  config.project.name = await askValue(rl, "Project name", config.project.name || "");
-  config.project.framework = await askValue(rl, "Framework", config.project.framework || "");
   config.project.siteRoot = await askValue(rl, "Site root", config.project.siteRoot || ".");
 
   const prePrompt = await askValue(rl, "Add brand pre-prompt (blank to skip)", "");

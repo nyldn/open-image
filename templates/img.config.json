@@ -10,8 +10,6 @@
     "maxCostPerRunUsd": 25
   },
   "project": {
-    "name": "",
-    "framework": "",
     "siteRoot": "."
   },
   "brand": {

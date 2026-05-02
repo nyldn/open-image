@@ -100,8 +100,6 @@ macOS, `img` reads the matching Keychain item before calling the provider API.
     "maxCostPerRunUsd": 25
   },
   "project": {
-    "name": "",
-    "framework": "",
     "siteRoot": "."
   },
   "brand": {
