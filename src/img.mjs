@@ -1401,7 +1401,7 @@ async function setupTui(args, loadedEnvFiles, loadedCredentialKeys = []) {
       if (choice === "5") await previewPanel(rl, args);
       if (choice === "6") {
         renderSetupHeader("Health Check");
-        console.log(JSON.stringify(healthCommand(args, loadedEnvFiles, loadConfig(args), loadedCredentialKeys), null, 2));
+        console.log(formatHealthPanel(healthCommand(args, loadedEnvFiles, loadConfig(args), loadedCredentialKeys)));
         await pause(rl);
       }
     }
@@ -1489,6 +1489,83 @@ function insidePath(root, candidate) {
   return rel === "" || (!!rel && !rel.startsWith("..") && !isAbsolute(rel));
 }
 
+function statusLabel(status) {
+  if (status === "ok") return "OK";
+  if (status === "warning") return "WARN";
+  if (status === "error") return "ERR";
+  return "INFO";
+}
+
+function healthStatusCounts(checks = []) {
+  return checks.reduce((counts, check) => {
+    counts[check.status] = (counts[check.status] || 0) + 1;
+    return counts;
+  }, { ok: 0, warning: 0, error: 0, info: 0 });
+}
+
+function healthNextSteps(health) {
+  const steps = [];
+  for (const check of health.checks || []) {
+    if (check.status !== "warning" && check.status !== "error") continue;
+    if (check.name === "user-config") {
+      steps.push("Run img setup --user to create user defaults.");
+    } else if (check.name === "user-env") {
+      steps.push("Use macOS Keychain for keys, or add provider keys to the user env file.");
+    } else if (check.name === "default-provider-key" || check.name.endsWith("-key")) {
+      steps.push(`Run img key set ${check.provider || "openai"} from a normal terminal.`);
+    } else if (check.name === "project-root") {
+      steps.push("Run img setup from inside the project repository when using project defaults.");
+    } else if (check.name === "project-config" && health.projectRoot) {
+      steps.push("Run img setup --project inside this repo to create img.config.json.");
+    } else if (check.name === "project-config") {
+      steps.push("Move this img.config.json into a git project folder, or remove it if it should not apply here.");
+    } else if (check.name.startsWith("config-warning-") && /schemaVersion/.test(check.message || "")) {
+      steps.push(`Add "schemaVersion": 1 to ${check.path}.`);
+    } else if (check.path) {
+      steps.push(`${check.message} (${check.path})`);
+    } else {
+      steps.push(check.message);
+    }
+  }
+  return uniqueStrings(steps.filter(Boolean));
+}
+
+export function formatHealthPanel(health) {
+  const checks = health.checks || [];
+  const counts = healthStatusCounts(checks);
+  const result = counts.error > 0 ? "failed" : counts.warning > 0 ? "needs attention" : "healthy";
+  const lines = [
+    `Result: ${result}`,
+    `Checks run: ${checks.length}  OK: ${counts.ok}  WARN: ${counts.warning}  ERR: ${counts.error}  INFO: ${counts.info}`,
+    "",
+    "Context",
+    `  cwd: ${health.cwd || "unknown"}`,
+    `  project root: ${health.projectRoot || "not detected"}`,
+    `  config files: ${(health.configFiles || []).map((file) => `${file.type}:${file.path}`).join(", ") || "none"}`,
+    `  env files: ${(health.loadedEnvFiles || []).join(", ") || "none"}`,
+    "",
+    "Credentials",
+    `  OpenAI: ${health.keys?.openai || "unknown"} via ${health.keyDetails?.openai?.source || "unknown"}`,
+    `  Gemini: ${health.keys?.gemini || "unknown"} via ${health.keyDetails?.gemini?.source || "unknown"}`,
+    "",
+    "Checks",
+  ];
+
+  for (const check of checks) {
+    lines.push(`  ${statusLabel(check.status).padEnd(5)} ${check.name.padEnd(28)} ${check.message}`);
+    if (check.path) lines.push(`        ${check.path}`);
+  }
+
+  const nextSteps = healthNextSteps(health);
+  lines.push("", "Next steps");
+  if (nextSteps.length === 0) {
+    lines.push("  No action needed.");
+  } else {
+    for (const step of nextSteps) lines.push(`  - ${step}`);
+  }
+  return lines.join("\n");
+}
+
 function healthCommand(args, loadedEnvFiles, loadedConfig, loadedCredentialKeys = []) {
   const projectRoot = findProjectRoot(args.cwd);
   const projectConfigLayer = loadedConfig.layers?.find((layer) => layer.type === "project");
@@ -1530,7 +1607,12 @@ function healthCommand(args, loadedEnvFiles, loadedConfig, loadedCredentialKeys 
   }
 
   if (projectConfigLayer) {
-    add("project-config", "ok", "Project config loaded.", { path: projectConfigLayer.path });
+    add(
+      "project-config",
+      projectRoot ? "ok" : "warning",
+      projectRoot ? "Project config loaded." : "Project config loaded outside a git project; it may affect every img command run from this folder.",
+      { path: projectConfigLayer.path },
+    );
   } else if (projectRoot) {
     add("project-config", "warning", "No project img.config.json found; run img setup --project.", { path: join(projectRoot, DEFAULT_CONFIG_FILENAME) });
   } else {
@@ -2022,6 +2104,8 @@ export async function main(rawArgs = process.argv.slice(2)) {
     const result = await run(rawArgs);
     if (result?.text) {
       console.log(result.text);
+    } else if (result?.checkHealth && !rawArgs.includes("--json")) {
+      console.log(formatHealthPanel(result));
     } else {
       console.log(JSON.stringify(result, null, 2));
     }

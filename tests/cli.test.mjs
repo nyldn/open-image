@@ -15,6 +15,7 @@ import {
   buildOpenAIJsonBody,
   composePrompt,
   formatErrorForCli,
+  formatHealthPanel,
   formatSetupPanel,
   findProjectRoot,
   keyPromptLabel,
@@ -695,6 +696,49 @@ test("check-health reports config layers without exposing secrets", async () => 
     assert.equal(result.keys.openai, "present");
     assert.equal(JSON.stringify(result).includes("sk-test-secret"), false);
     assert.equal(result.checks.some((check) => check.name === "brand-reference:docs/brand.md" && check.status === "warning"), true);
+  });
+});
+
+test("health panel formats checks instead of dumping raw JSON", () => {
+  const panel = formatHealthPanel({
+    ok: false,
+    cwd: "/Users/chris",
+    projectRoot: null,
+    configFiles: [{ type: "project", path: "/Users/chris/img.config.json" }],
+    loadedEnvFiles: ["/Users/chris/.config/img/.env.local"],
+    keys: { openai: "present", gemini: "missing" },
+    keyDetails: {
+      openai: { source: "macos-keychain" },
+      gemini: { source: "missing" },
+    },
+    checks: [
+      { name: "user-config", status: "ok", message: "User config exists.", path: "/Users/chris/.config/img/config.json" },
+      { name: "project-config", status: "warning", message: "Project config loaded outside a git project.", path: "/Users/chris/img.config.json" },
+      { name: "recipe-index", status: "info", message: "Recipe index unavailable.", path: "/opt/img/resources/prompt-recipes.jsonl" },
+    ],
+  });
+
+  assert.doesNotMatch(panel, /^\s*\{/);
+  assert.match(panel, /Result: needs attention/);
+  assert.match(panel, /Checks run: 3/);
+  assert.match(panel, /Credentials/);
+  assert.match(panel, /OpenAI: present via macos-keychain/);
+  assert.match(panel, /WARN\s+project-config\s+Project config loaded outside a git project\./);
+  assert.match(panel, /Next steps/);
+});
+
+test("check-health warns when cwd config is loaded without a git project root", async () => {
+  const cwd = mkdtempSync(join(tmpdir(), "img-loose-config-"));
+  const configHome = tempConfigHome();
+  writeFileSync(join(cwd, "img.config.json"), JSON.stringify({
+    schemaVersion: 1,
+    outputDir: "./generated",
+  }, null, 2));
+
+  await withEnv({ IMG_CONFIG_HOME: configHome }, async () => {
+    const health = await run(["check-health", "--cwd", cwd]);
+    assert.equal(health.projectRoot, null);
+    assert.equal(health.checks.some((check) => check.name === "project-config" && check.status === "warning"), true);
   });
 });
 

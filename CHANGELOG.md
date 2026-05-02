@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.13 - 2026-05-02
+
+- Replaced the interactive setup health check JSON dump with a readable
+  diagnostic panel and next-step summary.
+- Warn when a project config is loaded outside a git project root.
+
 ## 0.1.12 - 2026-05-02
 
 - Replaced per-color project setup prompts with one paste-friendly brand color
