@@ -4,7 +4,7 @@ set -euo pipefail
 MARKETPLACE="https://github.com/nyldn/plugins.git"
 PLUGIN="img@nyldn-plugins"
 SCOPE="user"
-INSTALL_BASE_COMMAND="true"
+CLEANUP_USER_COMMAND="true"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 fail() { echo "  [error] $1"; exit 1; }
@@ -18,11 +18,11 @@ while [ "$#" -gt 0 ]; do
       shift 2
       ;;
     --bare-alias)
-      INSTALL_BASE_COMMAND="true"
+      CLEANUP_USER_COMMAND="true"
       shift
       ;;
-    --no-base-command|--no-bare-alias)
-      INSTALL_BASE_COMMAND="false"
+    --no-base-command|--no-bare-alias|--keep-user-command)
+      CLEANUP_USER_COMMAND="false"
       shift
       ;;
     *)
@@ -39,11 +39,11 @@ claude plugin marketplace add "$MARKETPLACE" --scope "$SCOPE"
 echo "Installing $PLUGIN..."
 claude plugin install "$PLUGIN" --scope "$SCOPE"
 
-if [ "$INSTALL_BASE_COMMAND" = "true" ]; then
-  echo "Installing base /img command..."
-  "$SCRIPT_DIR/install-img-alias.sh"
+if [ "$CLEANUP_USER_COMMAND" = "true" ]; then
+  echo "Removing generated user /img command if present..."
+  "$SCRIPT_DIR/cleanup-claude-user-command.sh"
 else
-  echo "Skipping base /img command. Claude will expose only namespaced plugin commands."
+  echo "Keeping any existing user /img command."
 fi
 
 info "Installed $PLUGIN"

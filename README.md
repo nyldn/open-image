@@ -63,9 +63,9 @@ npm install -g https://github.com/nyldn/img.git
 ```
 
 `img install` detects Claude Code and Codex, adds the shared `nyldn-plugins`
-marketplace, installs what each CLI can install non-interactively, refreshes the
-Claude `/img` base command, and opens the interactive setup panel on first
-install when a real terminal is available.
+marketplace, installs what each CLI can install non-interactively, removes the
+legacy generated Claude user `/img` alias if present, and opens the interactive
+setup panel on first install when a real terminal is available.
 
 Use explicit targets when needed:
 
@@ -122,8 +122,7 @@ The plugin calls its bundled `bin/img`; a global CLI install is not required for
 | `/img:gemini <prompt>` | Force Gemini. |
 | `/img:edit --input <path> [--provider openai\|gemini] <prompt>` | Edit/restyle a reference image. |
 
-Claude namespaces marketplace plugin commands, so `/img` is installed as a
-user-scope command that points at the installed plugin binary. The namespaced
+Claude exposes the marketplace plugin's `/img` command directly. The namespaced
 `/img:*` forms remain available for explicit setup, provider, and edit flows.
 
 ### 3. Codex marketplace-only
@@ -530,9 +529,9 @@ Restart Claude Code. Plugin manifests are loaded on session start.
 
 ### Conflicts with other plugins / aliases
 
-Run `./scripts/install-claude.sh` again to refresh the user-scope `/img`
-command. The namespaced forms `/img:setup`, `/img:edit`, `/img:openai`, and
-`/img:gemini` remain available.
+Run `img install claude` or `./scripts/install-claude.sh` again to remove the
+generated legacy user `/img` alias. The namespaced forms `/img:setup`,
+`/img:edit`, `/img:openai`, and `/img:gemini` remain available.
 
 ### `img check-health` reports project root not found
 
@@ -555,10 +554,10 @@ claude plugin uninstall img@nyldn-plugins
 Only remove `nyldn-plugins` if you are not using other nyldn plugins such as
 `octo`.
 
-If you installed the base command:
+If an older install created a duplicate user command:
 
 ```bash
-rm ~/.claude/commands/img.md
+img install claude
 ```
 
 ### Codex plugin

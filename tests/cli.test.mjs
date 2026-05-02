@@ -372,6 +372,8 @@ test("buildInstallPlan detects available agent CLIs and setup recommendation", (
   assert.equal(plan.install, true);
   assert.equal(plan.targets.claude.available, true);
   assert.equal(plan.targets.claude.actions.includes("claude plugin install img@nyldn-plugins --scope user"), true);
+  assert.equal(plan.targets.claude.actions.includes("remove generated Claude user /img command if present"), true);
+  assert.equal(plan.targets.claude.actions.some((action) => /install Claude \/img base command/.test(action)), false);
   assert.equal(plan.targets.codex.available, true);
   assert.equal(plan.targets.codex.actions.includes("codex plugin marketplace add https://github.com/nyldn/plugins.git"), true);
   assert.equal(plan.setup.action, "run");

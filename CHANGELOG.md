@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.14 - 2026-05-02
+
+- Stopped installing a separate Claude user `/img` command so the marketplace
+  plugin command does not appear twice.
+- Added cleanup for the generated legacy `~/.claude/commands/img.md` alias.
+
 ## 0.1.13 - 2026-05-02
 
 - Replaced the interactive setup health check JSON dump with a readable
