@@ -43,7 +43,7 @@
         "url": "https://github.com/nyldn/img.git"
       },
       "description": "Generate and edit images with OpenAI GPT Image 2 and Gemini 3.1 Flash Image Preview.",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "author": {
         "name": "nyldn",
         "url": "https://github.com/nyldn"

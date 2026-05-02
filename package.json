@@ -1,6 +1,6 @@
 {
   "name": "@nyldn.sh/img",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Claude Code and Codex plugin for generating images with OpenAI GPT Image 2 and Gemini 3.1 Flash Image Preview.",
   "type": "module",
   "bin": {

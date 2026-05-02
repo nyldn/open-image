@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.17 - 2026-05-02
+
+- Made `img install` run `codex plugin marketplace upgrade nyldn-plugins` after
+  adding the Codex marketplace, so Codex refreshes to the latest shared
+  marketplace entry.
+
 ## 0.1.16 - 2026-05-02
 
 - Added `img setup --open-terminal` so Claude `/img:setup` can open the rich

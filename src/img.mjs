@@ -1007,6 +1007,7 @@ export function buildInstallPlan({ target = "all", hasClaude = false, hasCodex =
         actions: includeCodex && hasCodex
           ? [
               `codex plugin marketplace add ${MARKETPLACE_URL}`,
+              "codex plugin marketplace upgrade nyldn-plugins",
               "open Codex /plugins and enable img if non-interactive install is unavailable",
             ]
           : [],
@@ -1051,6 +1052,7 @@ async function installCommand(args, loadedEnvFiles, loadedCredentialKeys) {
 
   if (plan.targets.codex.available) {
     runInstallStep("codex", ["plugin", "marketplace", "add", MARKETPLACE_URL]);
+    runInstallStep("codex", ["plugin", "marketplace", "upgrade", "nyldn-plugins"]);
     results.push({
       target: "codex",
       installed: true,
