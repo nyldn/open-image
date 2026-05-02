@@ -1,6 +1,6 @@
 ---
 name: img
-version: 0.1.15
+version: 0.1.16
 description: Generate or edit images with OpenAI gpt-image-2 or Google gemini-3.1-flash-image-preview using keys from macOS Keychain or env files. Use when a user asks to create, restyle, or edit an image through img.
 ---
 
@@ -36,14 +36,20 @@ Show the activation loader in user-facing terminal workflows:
 ```
 
 Optionally pre-create or refresh local setup files. Use JSON mode from agent
-commands; the rich setup control panel is for a normal terminal:
+commands. Use `setup --open-terminal` when an agent command should open the rich
+setup control panel in macOS Terminal:
 
 ```bash
+"${CLAUDE_PLUGIN_ROOT}/bin/img" setup --open-terminal
 "${CLAUDE_PLUGIN_ROOT}/bin/img" setup --json
 "${CLAUDE_PLUGIN_ROOT}/bin/img" check-health
 ```
 
 Use `img setup --user` for machine-local secrets/defaults, `img setup --project` for shared project config, and `img setup --both` inside a repo when a teammate needs both. Run `img setup` in a normal terminal to open the interactive control panel for credentials, defaults, brand prompts, brand colors, asset presets, preview, and health checks. The default generation path does not require running setup first.
+
+When project setup creates a new project config, img may seed brand colors and
+references from local brand/design/DLS/token files. Treat those as draft
+defaults the user can adjust in the setup panel.
 
 Manage local keys:
 

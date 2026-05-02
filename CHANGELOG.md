@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.16 - 2026-05-02
+
+- Added `img setup --open-terminal` so Claude `/img:setup` can open the rich
+  setup panel in a real macOS Terminal while still returning JSON setup and
+  health summaries inside Claude.
+- Removed the unreleased recipe-index health check from setup diagnostics.
+- Seed new project configs from local brand/design/DLS/token files during
+  explicit project setup, including discovered hex colors and references.
+
 ## 0.1.15 - 2026-05-02
 
 - Made Claude installs update the `nyldn-plugins` marketplace and `img`

@@ -14,6 +14,7 @@ import {
   buildGeminiBody,
   buildOpenAIJsonBody,
   composePrompt,
+  discoverProjectBrandDefaults,
   formatErrorForCli,
   formatHealthPanel,
   formatSetupPanel,
@@ -420,6 +421,41 @@ test("setup --json returns non-interactive setup payload", async () => {
   });
 });
 
+test("setup can open the interactive panel in a real terminal", async () => {
+  await withEnv({ IMG_SETUP_TERMINAL_DRY_RUN: "1" }, async () => {
+    const result = await run(["setup", "--open-terminal", "--cwd", "/tmp"]);
+    assert.equal(result.setupTerminal, true);
+    assert.equal(result.opened, true);
+    assert.match(result.command, /img' setup/);
+    assert.match(result.message, /opened in macOS Terminal/);
+  });
+});
+
+test("project setup discovers brand colors and references from design docs", async () => {
+  const repo = mkdtempSync(join(tmpdir(), "img-discovery-"));
+  mkdirSync(join(repo, ".git"));
+  writeFileSync(join(repo, "brand.md"), "Brand colors: #123456, 00aaee should not count, #abc\n");
+  writeFileSync(join(repo, "design.md"), "Accent #ffcc00\n");
+  mkdirSync(join(repo, "node_modules"), { recursive: true });
+  writeFileSync(join(repo, "node_modules", "brand.md"), "Ignore #ffffff\n");
+
+  const discovery = discoverProjectBrandDefaults(repo);
+  assert.deepEqual(discovery.colors, {
+    color1: "#123456",
+    color2: "#aabbcc",
+    color3: "#ffcc00",
+  });
+  assert.deepEqual(discovery.references.sort(), ["brand.md", "design.md"]);
+
+  await withEnv({ IMG_CONFIG_HOME: tempConfigHome() }, async () => {
+    const result = await run(["setup", "--project", "--json", "--cwd", repo]);
+    const config = JSON.parse(readFileSync(result.projectConfigFile, "utf8"));
+    assert.deepEqual(config.brand.colors, discovery.colors);
+    assert.deepEqual(config.brand.references.sort(), discovery.references.sort());
+    assert.deepEqual(result.discoveredProjectDefaults.colors, discovery.colors);
+  });
+});
+
 test("setup panel has a compact branded control-room intro", () => {
   const panel = formatSetupPanel({
     scope: "user",
@@ -727,13 +763,12 @@ test("health panel formats checks instead of dumping raw JSON", () => {
     checks: [
       { name: "user-config", status: "ok", message: "User config exists.", path: "/Users/chris/.config/img/config.json" },
       { name: "project-config", status: "warning", message: "Project config loaded outside a git project.", path: "/Users/chris/img.config.json" },
-      { name: "recipe-index", status: "info", message: "Recipe index unavailable.", path: "/opt/img/resources/prompt-recipes.jsonl" },
     ],
   });
 
   assert.doesNotMatch(panel, /^\s*\{/);
   assert.match(panel, /Result: needs attention/);
-  assert.match(panel, /Checks run: 3/);
+  assert.match(panel, /Checks run: 2/);
   assert.match(panel, /Credentials/);
   assert.match(panel, /OpenAI: present via macos-keychain/);
   assert.match(panel, /WARN\s+project-config\s+Project config loaded outside a git project\./);
@@ -752,6 +787,7 @@ test("check-health warns when cwd config is loaded without a git project root", 
     const health = await run(["check-health", "--cwd", cwd]);
     assert.equal(health.projectRoot, null);
     assert.equal(health.checks.some((check) => check.name === "project-config" && check.status === "warning"), true);
+    assert.equal(health.checks.some((check) => check.name === "recipe-index"), false);
   });
 });
 

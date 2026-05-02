@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from "node:child_process";
-import { accessSync, constants, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -128,6 +128,7 @@ export function parseArgs(argv = []) {
     _explicit: new Set(),
     setup: false,
     setupScope: "",
+    setupOpenTerminal: false,
     json: false,
     install: false,
     installTarget: "all",
@@ -203,6 +204,10 @@ export function parseArgs(argv = []) {
         break;
       case "--json":
         args.json = true;
+        break;
+      case "--open-terminal":
+      case "--terminal":
+        args.setupOpenTerminal = true;
         break;
       case "key":
       case "keys":
@@ -506,6 +511,98 @@ export function parseBrandColorInput(value = "") {
 
 function brandColorInputValue(colors = {}) {
   return normalizeBrandColors(colors).map(([, value]) => value).join(" ");
+}
+
+const BRAND_DISCOVERY_FILES = new Set([
+  "brand.md",
+  "brand.mdx",
+  "brand.txt",
+  "brands.md",
+  "design.md",
+  "design.mdx",
+  "design.txt",
+  "design-system.md",
+  "design-tokens.css",
+  "tokens.css",
+  "theme.css",
+  "globals.css",
+  "variables.css",
+  "dls.md",
+  "dls.mdx",
+]);
+const BRAND_DISCOVERY_SKIP_DIRS = new Set([
+  ".git",
+  ".next",
+  ".nuxt",
+  ".svelte-kit",
+  "build",
+  "coverage",
+  "dist",
+  "node_modules",
+  "vendor",
+]);
+
+function relativePath(from, target) {
+  return relative(from, target).split("\\").join("/");
+}
+
+function shouldScanBrandFile(filePath) {
+  const name = basename(filePath).toLowerCase();
+  if (BRAND_DISCOVERY_FILES.has(name)) return true;
+  return /(?:brand|design|token|theme|dls).*\.(?:md|mdx|txt|css)$/i.test(name);
+}
+
+function collectBrandCandidateFiles(root, dir = root, depth = 0, output = []) {
+  if (depth > 4 || output.length >= 20) return output;
+  let entries = [];
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return output;
+  }
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (!BRAND_DISCOVERY_SKIP_DIRS.has(entry.name)) {
+        collectBrandCandidateFiles(root, fullPath, depth + 1, output);
+      }
+      continue;
+    }
+    if (entry.isFile() && shouldScanBrandFile(fullPath)) output.push(fullPath);
+    if (output.length >= 20) break;
+  }
+  return output;
+}
+
+export function discoverProjectBrandDefaults(projectRoot) {
+  const root = resolve(projectRoot);
+  const files = collectBrandCandidateFiles(root).sort((a, b) => relativePath(root, a).localeCompare(relativePath(root, b)));
+  const colors = {};
+  const references = [];
+
+  for (const file of files) {
+    let content = "";
+    try {
+      content = readFileSync(file, "utf8");
+    } catch {
+      continue;
+    }
+    const found = [...content.matchAll(/#[0-9a-f]{3}(?:[0-9a-f]{3})?\b/gi)].map((match) => match[0]);
+    const parsed = parseBrandColorInput(found.join(" "));
+    for (const value of Object.values(parsed)) {
+      if (Object.values(colors).includes(value)) continue;
+      colors[`color${Object.keys(colors).length + 1}`] = value;
+      if (Object.keys(colors).length >= 12) break;
+    }
+    if (found.length > 0) references.push(relativePath(root, file));
+    if (Object.keys(colors).length >= 12) break;
+  }
+
+  return {
+    colors,
+    references: uniqueStrings(references),
+    files: files.map((file) => relativePath(root, file)),
+  };
 }
 
 export function composePrompt(userPrompt, promptConfig = {}) {
@@ -1157,9 +1254,86 @@ function envPresence() {
   };
 }
 
+function shellQuote(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
+function shellArg(value) {
+  const text = String(value);
+  return /^[A-Za-z0-9_./:=@%+-]+$/.test(text) ? text : shellQuote(text);
+}
+
+function appleScriptString(value) {
+  return `"${String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+}
+
+function setupTerminalCommand(args) {
+  const bin = resolve(pluginRoot(), "bin", "img");
+  const setupArgs = ["setup"];
+  const scope = args.setupScope || "";
+  if (scope) setupArgs.push(`--${scope}`);
+  if (args.configFile) setupArgs.push("--config", args.configFile);
+  return `cd ${shellQuote(resolve(args.cwd))} && ${shellQuote(bin)} ${setupArgs.map(shellArg).join(" ")}`;
+}
+
+function openSetupTerminal(args) {
+  const command = setupTerminalCommand(args);
+  const result = {
+    setupTerminal: true,
+    interactive: true,
+    opened: false,
+    command,
+    platform: process.platform,
+  };
+
+  if (process.env.IMG_SETUP_TERMINAL_DRY_RUN === "1") {
+    return { ...result, opened: true, message: "Interactive setup opened in macOS Terminal." };
+  }
+
+  if (process.platform !== "darwin") {
+    return {
+      ...result,
+      message: "Interactive setup can only be opened automatically on macOS. Run the returned command in a normal terminal.",
+    };
+  }
+
+  execFileSync("osascript", [
+    "-e",
+    `tell application "Terminal" to do script ${appleScriptString(command)}`,
+    "-e",
+    'tell application "Terminal" to activate',
+  ], { stdio: "ignore" });
+
+  return { ...result, opened: true, message: "Interactive setup opened in macOS Terminal." };
+}
+
 function setupScopeFor(args) {
   if (args.setupScope) return args.setupScope;
   return findProjectRoot(args.cwd) ? "both" : "user";
+}
+
+function emptyBrandDiscovery() {
+  return { colors: {}, references: [], files: [] };
+}
+
+function applyDiscoveredProjectDefaults(configPath, projectRoot) {
+  const discovery = discoverProjectBrandDefaults(projectRoot);
+  if (Object.keys(discovery.colors).length === 0 && discovery.references.length === 0) return discovery;
+
+  const config = readConfigOrDefault(configPath);
+  config.brand = config.brand || {};
+  const existingColors = normalizeBrandColors(config.brand.colors);
+  const existingReferences = normalizePromptList(config.brand.references);
+
+  if (existingColors.length === 0 && Object.keys(discovery.colors).length > 0) {
+    config.brand.colors = discovery.colors;
+  }
+  if (existingReferences.length === 0 && discovery.references.length > 0) {
+    config.brand.references = discovery.references;
+  }
+
+  writeJsonFile(configPath, config);
+  return discovery;
 }
 
 function setupCommand(args, loadedEnvFiles, loadedCredentialKeys = []) {
@@ -1171,6 +1345,7 @@ function setupCommand(args, loadedEnvFiles, loadedCredentialKeys = []) {
   const created = scope === "user" || scope === "both" ? writeSetupEnvFile(envPath) : false;
   const userConfigCreated = scope === "user" || scope === "both" ? writeSetupConfigFile(userConfig, 0o600) : false;
   const projectConfigCreated = scope === "project" || scope === "both" ? writeSetupConfigFile(projectConfig) : false;
+  const discoveredProjectDefaults = projectConfigCreated ? applyDiscoveredProjectDefaults(projectConfig, projectRoot) : emptyBrandDiscovery();
   const loadedConfig = loadConfig({ ...args, cwd: projectRoot });
   const defaultProvider = loadedConfig.config.defaultProvider || process.env.IMG_PROVIDER || "openai";
   return {
@@ -1186,6 +1361,7 @@ function setupCommand(args, loadedEnvFiles, loadedCredentialKeys = []) {
     projectConfigFileCreated: projectConfigCreated,
     configFile: scope === "user" ? userConfig : projectConfig,
     configFileCreated: scope === "user" ? userConfigCreated : projectConfigCreated,
+    discoveredProjectDefaults,
     defaultProvider,
     keys: envPresence(),
     loadedEnvFiles,
@@ -1667,14 +1843,6 @@ function healthCommand(args, loadedEnvFiles, loadedConfig, loadedCredentialKeys 
     );
   }
 
-  const recipeIndex = resolve(pluginRoot(), "resources", "prompt-recipes.jsonl");
-  add(
-    "recipe-index",
-    existsSync(recipeIndex) ? "ok" : "info",
-    existsSync(recipeIndex) ? "Bundled recipe index exists." : "Bundled recipe index is not installed yet; recipe matching will be unavailable.",
-    { path: recipeIndex },
-  );
-
   const ok = !checks.some((check) => check.status === "error");
   return {
     checkHealth: true,
@@ -2005,7 +2173,7 @@ export function helpText() {
 Usage:
   img activate
   img install [claude|codex|all] [--setup|--no-setup]
-  img setup [--user|--project|--both]
+  img setup [--user|--project|--both] [--open-terminal]
   img key status
   img key set openai
   img key set gemini
@@ -2053,6 +2221,7 @@ export async function run(rawArgs = []) {
   const loadedCredentialKeys = args.dryRun ? [] : loadStoredProviderKeys();
   if (args.install) return installCommand(args, loadedEnvFiles, loadedCredentialKeys);
   if (args.setup) {
+    if (args.setupOpenTerminal) return openSetupTerminal(args);
     if (isInteractiveTerminal(args)) return setupTui(args, loadedEnvFiles, loadedCredentialKeys);
     return setupCommand(args, loadedEnvFiles, loadedCredentialKeys);
   }

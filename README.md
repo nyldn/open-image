@@ -52,7 +52,9 @@ img install
 
 The `img` package still bootstraps first-run user setup files non-interactively
 during npm install, but it does not open the control panel inside npm because npm
-postinstall TTYs are unreliable across terminals.
+postinstall TTYs are unreliable across terminals. It also does not scan the
+current project during npm install; project discovery runs only from explicit
+setup commands.
 
 If you skipped lifecycle scripts, `img setup` creates the same user files.
 
@@ -185,9 +187,10 @@ img setup             # opens the terminal setup control panel
 img check-health      # verifies install end-to-end
 ```
 
-In Claude Code, use `/img setup` or `/img:setup` for non-interactive setup
-status. If Claude is not attached to a real terminal, it will tell you the exact
-terminal command to open the rich setup panel.
+In Claude Code, use `/img setup` or `/img:setup`. Claude cannot host the rich
+control panel directly inside its Bash tool, so the command asks macOS Terminal
+to open `img setup`, then returns setup and health JSON for a readable Claude
+summary.
 
 The setup panel can manage:
 
@@ -201,6 +204,12 @@ The setup panel can manage:
 
 - **Inside a git repo** -> creates user files **and** project `img.config.json`
 - **Outside a git repo** -> user files only
+
+When project setup creates a new `img.config.json`, img looks for local
+brand/design/DLS/token docs such as `brand.md`, `design.md`, `dls.md`, and
+theme/token CSS files. It seeds `brand.colors` from discovered `#hex` colors and
+adds those files to `brand.references`. It skips dependency and build folders
+such as `node_modules`, `dist`, and `.next`.
 
 Force a scope:
 
@@ -364,6 +373,7 @@ img activate                                # print loader banner
 img install [claude|codex|all]              # install native agent plugins
 img install --no-setup                      # install plugins without opening setup
 img setup [--user|--project|--both]         # open setup panel or return JSON in non-TTY
+img setup --open-terminal                   # open the rich setup panel in macOS Terminal
 img key status                              # inspect key presence without values
 img key set openai                          # save OPENAI_API_KEY in macOS Keychain
 img key set gemini                          # save GEMINI_API_KEY in macOS Keychain

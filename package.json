@@ -1,6 +1,6 @@
 {
   "name": "@nyldn.sh/img",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Claude Code and Codex plugin for generating images with OpenAI GPT Image 2 and Gemini 3.1 Flash Image Preview.",
   "type": "module",
   "bin": {
@@ -10,7 +10,7 @@
     "postinstall": "node scripts/postinstall.mjs",
     "test": "node --test tests/*.test.mjs",
     "validate": "node scripts/validate.mjs",
-    "smoke": "node bin/img --dry-run --provider openai --prompt \"A minimal app icon\" && node bin/img --dry-run --provider gemini --prompt \"A minimal app icon\""
+    "smoke": "node bin/img --dry-run --provider openai --prompt \"A minimal app icon\" && node bin/img --dry-run --provider gemini --aspect 1:1 --prompt \"A minimal app icon\""
   },
   "keywords": [
     "claude-code-plugin",
