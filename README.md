@@ -39,15 +39,18 @@ plugins when those CLIs are present.
 npm install -g @nyldn.sh/img
 ```
 
-On an interactive global install, npm starts first-run `img install --user` from
-the controlling terminal. That registers Claude Code and Codex when those CLIs
-are present and opens setup when user config or provider keys are missing.
+On an interactive global install, npm starts first-run `img setup --user` from
+the controlling terminal. That opens setup for credentials and personal defaults
+without asking Claude Code or Codex to handle API keys.
 
-If npm cannot access a terminal, or if you skipped lifecycle scripts, run:
+After npm finishes, register the native agent plugins:
 
 ```bash
 img install
 ```
+
+If npm cannot access a terminal, or if you skipped lifecycle scripts, run
+`img setup` manually too.
 
 If you need to install directly from source instead of npm registry:
 

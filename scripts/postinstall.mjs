@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const imgBin = resolve(root, "bin", "img");
-const command = [process.execPath, imgBin, "install", "--user"];
+const command = [process.execPath, imgBin, "setup", "--user"];
 
 function postinstallDecision(env = process.env) {
   if (env.IMG_SKIP_POSTINSTALL === "1" || env.IMG_SKIP_POSTINSTALL === "true") {
@@ -51,7 +51,7 @@ try {
 try {
   writeLine(ttyFd);
   writeLine(ttyFd, "img first-run setup");
-  writeLine(ttyFd, "Running img install --user. Press Ctrl+C to cancel setup.");
+  writeLine(ttyFd, "Running img setup --user. Press Ctrl+C to cancel setup.");
   writeLine(ttyFd);
 
   const result = spawnSync(command[0], command.slice(1), {
@@ -64,7 +64,7 @@ try {
     writeLine(ttyFd);
     writeLine(ttyFd, "img setup did not finish during npm install.");
     writeLine(ttyFd, "Run this from a normal terminal when ready:");
-    writeLine(ttyFd, "  img install");
+    writeLine(ttyFd, "  img setup");
     writeLine(ttyFd);
   }
 } finally {

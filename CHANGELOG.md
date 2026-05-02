@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5 - 2026-05-02
+
+- Changed npm postinstall to run only user setup, avoiding Claude/Codex CLI
+  registration from inside npm lifecycle scripts.
+
 ## 0.1.4 - 2026-05-02
 
 - Added a global npm postinstall hook that opens first-run `img install --user`

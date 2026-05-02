@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-test("package postinstall runs img install for global npm installs", () => {
+test("package postinstall runs user setup for global npm installs", () => {
   const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   assert.equal(pkg.scripts.postinstall, "node scripts/postinstall.mjs");
 
@@ -25,7 +25,7 @@ test("package postinstall runs img install for global npm installs", () => {
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.run, true);
   assert.equal(payload.reason, "global install");
-  assert.deepEqual(payload.command.slice(-2), ["install", "--user"]);
+  assert.deepEqual(payload.command.slice(-2), ["setup", "--user"]);
 });
 
 test("package postinstall skips non-global installs", () => {
