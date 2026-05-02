@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.10 - 2026-05-02
+
+- Made npm postinstall tolerate missing controlling terminals so global
+  installs complete cleanly in non-interactive shells.
+
 ## 0.1.9 - 2026-05-02
 
 - Changed provider credential entry to prompt for an API key directly instead

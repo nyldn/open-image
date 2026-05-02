@@ -29,6 +29,41 @@ function writeLine(fd, text = "") {
   writeSync(fd, `${text}\n`);
 }
 
+function postinstallMessage(result) {
+  const lines = ["", "img first-run setup"];
+  if (result.error || result.status !== 0) {
+    lines.push(
+      "Setup files were not refreshed during npm install.",
+      "Run this from your normal terminal when ready:",
+      "  img setup",
+    );
+  } else {
+    lines.push(
+      "User setup files are ready. The interactive panel is deliberately not run inside npm.",
+      "Next:",
+      "  img setup    # open the control panel",
+      "  img install  # register Claude/Codex plugins",
+    );
+  }
+  lines.push("");
+  return lines;
+}
+
+function writePostinstallMessage(lines) {
+  const ttyPath = process.env.IMG_POSTINSTALL_TTY || (process.platform === "win32" ? "CON" : "/dev/tty");
+  let ttyFd;
+  try {
+    ttyFd = openSync(ttyPath, "w");
+    for (const line of lines) {
+      writeLine(ttyFd, line);
+    }
+  } catch {
+    process.stdout.write(`${lines.join("\n")}\n`);
+  } finally {
+    if (ttyFd !== undefined) closeSync(ttyFd);
+  }
+}
+
 const decision = postinstallDecision();
 
 if (process.env.IMG_POSTINSTALL_DRY_RUN === "1") {
@@ -40,7 +75,6 @@ if (!decision.run) {
   process.exit(0);
 }
 
-const ttyPath = process.env.IMG_POSTINSTALL_TTY || (process.platform === "win32" ? "CON" : "/dev/tty");
 const result = spawnSync(command[0], command.slice(1), {
   cwd: process.env.INIT_CWD || homedir(),
   env: { ...process.env, IMG_NPM_POSTINSTALL: "1" },
@@ -48,22 +82,4 @@ const result = spawnSync(command[0], command.slice(1), {
   stdio: ["ignore", "pipe", "pipe"],
 });
 
-let ttyFd;
-try {
-  ttyFd = openSync(ttyPath, "w");
-  writeLine(ttyFd);
-  writeLine(ttyFd, "img first-run setup");
-  if (result.error || result.status !== 0) {
-    writeLine(ttyFd, "Setup files were not refreshed during npm install.");
-    writeLine(ttyFd, "Run this from your normal terminal when ready:");
-    writeLine(ttyFd, "  img setup");
-  } else {
-    writeLine(ttyFd, "User setup files are ready. The interactive panel is deliberately not run inside npm.");
-    writeLine(ttyFd, "Next:");
-    writeLine(ttyFd, "  img setup    # open the control panel");
-    writeLine(ttyFd, "  img install  # register Claude/Codex plugins");
-  }
-  writeLine(ttyFd);
-} finally {
-  if (ttyFd !== undefined) closeSync(ttyFd);
-}
+writePostinstallMessage(postinstallMessage(result));

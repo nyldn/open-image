@@ -1,6 +1,6 @@
 ---
 name: img
-version: 0.1.9
+version: 0.1.10
 description: Generate or edit images with OpenAI gpt-image-2 or Google gemini-3.1-flash-image-preview using keys from macOS Keychain or env files. Use when a user asks to create, restyle, or edit an image through img.
 ---
 

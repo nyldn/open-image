@@ -480,10 +480,12 @@ test("apiErrorFromResponse preserves provider status, request id, details, and h
 });
 
 test("run dry-run returns provider metadata", async () => {
-  const result = await run(["--dry-run", "--provider", "gemini", "--prompt", "A clean app icon"]);
-  assert.equal(result.dryRun, true);
-  assert.equal(result.provider, "gemini");
-  assert.equal(result.model, GEMINI_DEFAULT_MODEL);
+  await withEnv({ IMG_CONFIG_HOME: tempConfigHome() }, async () => {
+    const result = await run(["--dry-run", "--provider", "gemini", "--prompt", "A clean app icon"]);
+    assert.equal(result.dryRun, true);
+    assert.equal(result.provider, "gemini");
+    assert.equal(result.model, GEMINI_DEFAULT_MODEL);
+  });
 });
 
 test("first generation bootstraps user setup files when the provider key is missing", async () => {
